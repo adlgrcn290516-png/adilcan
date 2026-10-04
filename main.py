@@ -1,4 +1,4 @@
-"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run   Faz 5: fetch-history, research"""
+"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run   Faz 5: fetch-history, research, regime-test"""
 from __future__ import annotations
 
 import argparse
@@ -302,6 +302,26 @@ class _Tee:
         return getattr(self.stream, n)
 
 
+def cmd_regime_test(a, s) -> int:
+    import numpy as np
+    from app.backtest import regime as RG
+    from app.data.history import HistoryStore
+    ad = BinanceSpotAdapter(s)
+    now = ad.server_time_ms()
+    st = HistoryStore(ad, a.history_dir)
+    res = []
+    for sym in ("BTCUSDT", "ETHUSDT"):
+        df = st.update(sym, "1d", a.days, now)
+        if len(df) < a.n + 400:
+            print(f"[HATA] {sym}: yetersiz geçmiş ({len(df)} gün)")
+            return 2
+        print(f"{sym}: {len(df)} gün")
+        res.append(RG.evaluate_asset(sym, df["close_time"].to_numpy(dtype=float), df["open"].to_numpy(dtype=float),
+                                     df["close"].to_numpy(dtype=float), a.n, a.fee, a.slippage))
+    print(RG.report(res, a.n, a.fee, a.slippage))
+    return 0
+
+
 def main(argv=None) -> int:
     for st in (sys.stdout, sys.stderr):  # Windows Türkçe konsolda (cp1254) '→' gibi karakterler çökmesin
         try:
@@ -362,6 +382,13 @@ def main(argv=None) -> int:
     rs.add_argument("--skip-control", action="store_true", help="rastgele-giriş kontrolünü atla")
     rs.add_argument("--quick", action="store_true", help="küçük ızgara")
     rs.add_argument("--synthetic", type=int, default=0, help="çevrimdışı demo: N sentetik sembol")
+    rg = sub.add_parser("regime-test", help="BTC/ETH SMA200 rejim filtresi testi (tek kural)")
+    rg.add_argument("--days", type=int, default=3500)
+    rg.add_argument("--n", type=int, default=200)
+    rg.add_argument("--fee", type=float, default=0.001)
+    rg.add_argument("--slippage", type=float, default=5.0, help="bps")
+    rg.add_argument("--history-dir", default="data/history")
+    rg.add_argument("--copy-to", default="")
     a = ap.parse_args(argv)
     if getattr(a, "copy_to", ""):
         from pathlib import Path as _P
@@ -372,7 +399,7 @@ def main(argv=None) -> int:
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research, "regime-test": cmd_regime_test}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         if a.debug:
