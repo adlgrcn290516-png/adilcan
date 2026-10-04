@@ -5,6 +5,8 @@ gizli tahmin kullanılmaz.
 """
 from __future__ import annotations
 
+from typing import Mapping
+
 from app.config import ScoringCfg, StrategyCfg
 from app.core.features import Features
 from app.core.ml import NullModel, PredictiveModel
@@ -24,8 +26,13 @@ class AIComposite(Strategy):
         self.model = model or NullModel()
 
     def evaluate(self, f: Features) -> SignalResult:
+        return self.decide(f, {s.name: s.evaluate(f) for s in self.strategies})
+
+    def decide(self, f: Features, outputs: Mapping[str, SignalResult]) -> SignalResult:
+        """Karar mantığı, hazır strateji çıktılarından. Backtest çıktıları önbellekleyip eşik/ağırlık
+        varyantlarını yeniden kullanır; canlıdaki evaluate() ile AYNI koddur."""
         sc = score(f, self.scoring)
-        results = [s.evaluate(f) for s in self.strategies]
+        results = [outputs[s.name] for s in self.strategies]
         buys = [r for r in results if r.signal is Signal.BUY and r.confidence >= self.scoring.min_vote_confidence]
         sells = [r for r in results if r.signal is Signal.SELL and r.confidence >= 0.55]
         details = {

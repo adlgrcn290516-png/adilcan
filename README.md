@@ -15,6 +15,7 @@ python main.py capabilities       # ürün yetenek matrisi
 python main.py paper-demo         # sanal parayla emir motoru demosu (gerçek emir YOK)
 python main.py scan --max-symbols 25   # piyasa tara + skorla (salt okunur)
 python main.py paper-run --cycles 1 --force-buy BTCUSDT   # tam zincir, SANAL para
+python main.py research --top 15 --days 365   # geçmiş veri + backtest + walk-forward raporu (salt okunur)
 python main.py check              # bağlantı + market data (+ key varsa hesap verisi), salt okunur
 BINANCE_ENVIRONMENT=demo python main.py check
 ```

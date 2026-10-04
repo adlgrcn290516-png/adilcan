@@ -60,3 +60,16 @@ app/
 3. Paper bakiyesinin kalıcılığı + tek-süreç kilidi. (Faz 9)
 4. Backtest + walk-forward sonuçları ve testnet/demo'da uzun süreli paper çalışma. (Faz 5+)
 5. Senin açık onayın; `safety.REAL_MONEY_ENABLED` elle True yapılır.
+
+## Faz 5 — Backtest & aşırı uyum koruması
+- `backtest/engine.py`: canlıyla AYNI `AIComposite/Strategy`, `RiskEngine`, `portfolio/rules.py` (stop/BE/kısmi TP/trailing).
+  Sinyal bar KAPANIŞINDA, dolum SONRAKİ bar AÇILIŞINDA (`latency_bars>=1` zorunlu). Komisyon + kayma + yarım-spread her dolumda.
+  Bar içi sıra bilinmediğinden KÖTÜMSER (önce stop; bar içinde stop yükselip low'a değiyorsa çıkış).
+- `core/features.py`: göstergeler bir kez (nedensel) hesaplanır, `features_at(i)` yalnızca <= i verisini okur.
+  Eski prefix-hesabıyla birebir aynılığı ve gelecek barlardan etkilenmediği testle kanıtlı.
+- `backtest/walkforward.py`: kayan train/test (OOS) + son %20 **holdout** (seçimde asla kullanılmaz, tek kez bakılır) +
+  küçük ızgara (18) + IS→OOS bozulma oranı + parametre kararlılığı + hüküm cümleleri.
+- `backtest/ablation.py`: her stratejiyi çıkar / tek başına çalıştır / skor bileşeni ağırlığını 0 yap / risk motorunu kapat.
+- Kanıt testleri: saf rastgele yürüyüşte maliyet sonrası kenar YOK (sahte kâr üretmiyor); geleceği bozmak geçmiş işlemleri
+  değiştirmiyor; maliyet arttıkça sonuç tekdüze düşüyor; holdout/OOS pencereleri çakışmıyor.
+- `research` komutu: veri indir (artımlı CSV önbellek) → baseline + buy&hold kıyası → ablation → walk-forward → holdout → rapor.

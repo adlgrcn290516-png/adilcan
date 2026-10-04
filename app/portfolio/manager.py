@@ -169,44 +169,34 @@ class PortfolioManager:
 
     # ---------- yönetim ----------
     def manage(self, quotes: Mapping[str, Quote]) -> list[ExitEvent]:
+        """Kurallar `portfolio/rules.step` içinde (backtest ile ORTAK). Burada yalnızca emir yürütme var."""
+        from app.portfolio import rules
         cfg, events = self.s.position, []
         for p in list(self.positions.values()):
             q = quotes.get(p.symbol)
             if q is None:
                 log.warning("%s: fiyat yok, bu turda yönetilemedi", p.symbol)
                 continue
-            bid, R = q.bid, p.risk_dist
-            p.highest = max(p.highest, bid)
-            if bid <= p.stop:  # 1) stop (BE/trailing ile yükselmiş olabilir)
-                why = "STOP" if p.stop <= p.initial_stop else "TRAILING/BE_STOP"
-                if e := self._close(p, p.qty, why, quotes):
-                    events.append(e)
-                continue
-            if bid >= p.tp2:
-                if e := self._close(p, p.qty, "TP2", quotes):
-                    events.append(e)
-                continue
-            if not p.breakeven_done and bid >= p.entry_price + D(str(cfg.breakeven_at_r)) * R:
-                if p.raise_stop(p.entry_price * (1 + D(str(cfg.breakeven_buffer_pct)) / 100)):
-                    log.info("%s BREAK-EVEN: stop -> %s", p.symbol, p.stop)
-                p.breakeven_done = True
-            if not p.partial_taken and bid >= p.tp1:
+            bid = q.bid
+            while p.status == "OPEN":
+                act = rules.step(p, bid, bid, cfg)
+                if act is None:
+                    break
+                if act.qty_fraction >= 1:  # STOP / TRAILING/BE_STOP / TP2 -> tamamını sat
+                    if e := self._close(p, p.qty, act.kind, quotes):
+                        events.append(e)
+                    break
                 info = self.symbols[p.symbol]
-                part = floor_to_step(p.qty * D(str(cfg.partial_tp_pct)), info.step_size)
+                part = floor_to_step(p.qty * act.qty_fraction, info.step_size)
                 remaining_val = (p.qty - part) * bid
                 if part < info.min_qty or part * bid < info.min_notional or remaining_val < info.min_notional:
-                    part = p.qty  # parça veya kalan çok küçük -> tamamını sat
-                if e := self._close(p, part, "TP1_PARTIAL" if part < p.qty else "TP1", quotes):
-                    events.append(e)
-                    if p.status == "OPEN":
-                        p.partial_taken = True
-                        p.raise_stop(p.entry_price * (1 + D(str(cfg.breakeven_buffer_pct)) / 100))
-                        p.breakeven_done = True
-                else:
-                    continue
-            if p.status == "OPEN" and bid >= p.entry_price + D(str(cfg.trail_start_r)) * R:
-                if p.raise_stop(p.highest - D(str(cfg.trail_dist_r)) * R):
-                    log.info("%s TRAILING: stop -> %s", p.symbol, p.stop)
+                    part = p.qty  # parça ya da kalan çok küçük -> tamamını sat
+                e = self._close(p, part, "TP1_PARTIAL" if part < p.qty else "TP1", quotes)
+                if e is None:
+                    break
+                events.append(e)
+                if p.status == "OPEN":
+                    rules.mark_partial(p, cfg)
             if p.status == "OPEN":
                 self.repo.save_position(p)
         return events

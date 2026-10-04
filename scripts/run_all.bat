@@ -25,7 +25,7 @@ echo ===== PAPER-RUN: EMERGENCY_STOP acik (yeni emir OLMAMALI) ===== >> "%LOG%"
 ".venv\Scripts\python.exe" main.py paper-run --max-symbols 10 --cycles 1 --force-buy BTCUSDT --emergency >> "%LOG%" 2>&1
 
 rem Masaustune dogru dosyaya giden kisayol (bir kez olusturulur)
-powershell -NoProfile -Command "$d=[Environment]::GetFolderPath('Desktop'); $p=Join-Path $d 'TRADING TEST.lnk'; if(-not (Test-Path $p)){$s=(New-Object -ComObject WScript.Shell).CreateShortcut($p); $s.TargetPath=Join-Path $env:USERPROFILE 'adilcan\test.bat'; $s.WorkingDirectory=Join-Path $env:USERPROFILE 'adilcan'; $s.Save()}" >nul 2>&1
+powershell -NoProfile -Command "$d=[Environment]::GetFolderPath('Desktop'); $p=Join-Path $d 'TRADING TEST.lnk'; if(-not (Test-Path $p)){$s=(New-Object -ComObject WScript.Shell).CreateShortcut($p); $s.TargetPath=Join-Path $env:USERPROFILE 'adilcan\test.bat'; $s.WorkingDirectory=Join-Path $env:USERPROFILE 'adilcan'; $s.Save()}; $p2=Join-Path $d 'TRADING RESEARCH.lnk'; if(-not (Test-Path $p2)){$s=(New-Object -ComObject WScript.Shell).CreateShortcut($p2); $s.TargetPath=Join-Path $env:USERPROFILE 'adilcan\research.bat'; $s.WorkingDirectory=Join-Path $env:USERPROFILE 'adilcan'; $s.Save()}" >nul 2>&1
 
 echo [3/3] Bitti.
 echo ==================================================

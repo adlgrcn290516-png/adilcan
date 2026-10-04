@@ -1,4 +1,4 @@
-"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run"""
+"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run   Faz 5: fetch-history, research"""
 from __future__ import annotations
 
 import argparse
@@ -215,6 +215,71 @@ def cmd_paper_run(a, s) -> int:
     return 0
 
 
+def _pick_symbols(ad, s, a):
+    from app.core.scanner import filter_universe
+    info = ad.exchange_info()
+    if a.symbols:
+        return [x.strip().upper() for x in a.symbols.split(",") if x.strip()], info
+    u = s.universe.model_copy(update={"max_symbols": a.top})
+    syms = [t.symbol for t in filter_universe(info, ad.tickers_24h(), u)]
+    return syms, info
+
+
+def cmd_fetch_history(a, s) -> int:
+    from app.data.history import HistoryStore
+    ad = BinanceSpotAdapter(s)
+    syms, _ = _pick_symbols(ad, s, a)
+    now = ad.server_time_ms()
+    st = HistoryStore(ad, a.history_dir)
+    for i, sym in enumerate(syms, 1):
+        df = st.update(sym, a.interval, a.days, now)
+        print(f"[{i}/{len(syms)}] {sym}: {len(df)} bar")
+    print(f"Önbellek: {a.history_dir}")
+    return 0
+
+
+def cmd_research(a, s) -> int:
+    from pathlib import Path
+    from app.backtest.engine import BacktestCfg
+    from app.backtest.research import ResearchOpts, run_research
+    s.scanner.interval = a.interval
+    cfg = BacktestCfg(interval=a.interval, fee_rate=a.fee, slippage_bps=a.slippage, half_spread_bps=a.spread,
+                      initial_capital=a.capital)
+    opts = ResearchOpts(a.train_days, a.test_days, a.holdout, a.min_trades, a.objective, a.skip_ablation, a.skip_wf,
+                        a.quick, bool(a.synthetic))
+    infos = None
+    if a.synthetic:
+        from app.backtest.synthetic import gbm_df
+        data = {f"SYN{k}USDT": gbm_df(int(a.days * 24), seed=k) for k in range(a.synthetic)}
+        print(f"SENTETİK veri: {len(data)} sembol (gerçek piyasa DEĞİL)")
+    else:
+        from app.data.history import HistoryStore
+        ad = BinanceSpotAdapter(s)
+        syms, info = _pick_symbols(ad, s, a)
+        infos = info
+        now = ad.server_time_ms()
+        st = HistoryStore(ad, a.history_dir)
+        data = {}
+        for i, sym in enumerate(syms, 1):
+            print(f"  veri [{i}/{len(syms)}] {sym}", end="\r", flush=True)
+            df = st.update(sym, a.interval, a.days, now)
+            if len(df) >= cfg.warmup_bars + 200:
+                data[sym] = df
+            else:
+                print(f"\n  {sym}: yetersiz geçmiş ({len(df)} bar) -> atlandı")
+        print(" " * 40)
+    if len(data) < 2:
+        print("[HATA] yeterli veri yok")
+        return 2
+    text = run_research(data, s, cfg, opts, infos, Path(a.report_dir))
+    print(text)
+    if a.copy_to:
+        Path(a.copy_to).write_text(text, encoding="utf-8")
+        print(f"\nRapor kopyası: {a.copy_to}")
+    print(f"\nRapor ve işlem listeleri: {a.report_dir}/")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="main.py")
     ap.add_argument("--config", default="config.yaml")
@@ -243,11 +308,36 @@ def main(argv=None) -> int:
     pr.add_argument("--resume", action="store_true", help="DB'yi silme (paper bakiyesi bellekte olduğundan önerilmez)")
     pr.add_argument("--emergency", action="store_true", help="EMERGENCY_STOP açık başla (yeni emir yok)")
     pr.add_argument("--force-buy", default="", help="DEMO: bu sembole manuel BUY sinyali enjekte et")
+    def hist_args(p):
+        p.add_argument("--symbols", default="", help="virgülle ayrılmış (boşsa hacme göre en büyükler)")
+        p.add_argument("--top", type=int, default=15)
+        p.add_argument("--days", type=int, default=365)
+        p.add_argument("--interval", default="1h")
+        p.add_argument("--history-dir", default="data/history")
+    fh = sub.add_parser("fetch-history", help="Geçmiş mum verisini indir/önbelleğe al (salt okunur)")
+    hist_args(fh)
+    rs = sub.add_parser("research", help="Backtest + ablation + walk-forward + holdout raporu")
+    hist_args(rs)
+    rs.add_argument("--train-days", type=int, default=90)
+    rs.add_argument("--test-days", type=int, default=30)
+    rs.add_argument("--holdout", type=float, default=0.2)
+    rs.add_argument("--min-trades", type=int, default=10)
+    rs.add_argument("--objective", default="sharpe", choices=["sharpe", "profit_factor", "return_over_dd"])
+    rs.add_argument("--fee", type=float, default=0.001)
+    rs.add_argument("--slippage", type=float, default=3.0, help="bps")
+    rs.add_argument("--spread", type=float, default=2.0, help="yarım-spread bps")
+    rs.add_argument("--capital", type=float, default=1000.0)
+    rs.add_argument("--report-dir", default="reports")
+    rs.add_argument("--copy-to", default="", help="raporun bir kopyasını bu dosyaya da yaz")
+    rs.add_argument("--skip-ablation", action="store_true")
+    rs.add_argument("--skip-wf", action="store_true")
+    rs.add_argument("--quick", action="store_true", help="küçük ızgara")
+    rs.add_argument("--synthetic", type=int, default=0, help="çevrimdışı demo: N sentetik sembol")
     a = ap.parse_args(argv)
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2

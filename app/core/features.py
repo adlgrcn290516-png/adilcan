@@ -29,7 +29,7 @@ def closed_only(df: pd.DataFrame, now_ms: int) -> pd.DataFrame:
     return df[df["close_time"] < now_ms].reset_index(drop=True)
 
 
-@dataclass
+@dataclass(slots=True)
 class Features:
     symbol: str
     price: float
@@ -76,53 +76,90 @@ def _f(x) -> float:
     return float(x) if x is not None and not (isinstance(x, float) and math.isnan(x)) else float("nan")
 
 
-def compute_features(symbol: str, df: pd.DataFrame, ticker: Ticker24h | None, book: OrderBook | None,
-                     *, breakout_lookback: int = 20, squeeze_pctile: float = 0.2,
-                     min_bars: int = 60) -> Features | None:
-    """df: KAPANMIŞ mumlar. Yetersiz veri -> None."""
-    if len(df) < min_bars:
-        return None
+@dataclass
+class Prepared:
+    """Göstergeler BİR KEZ (nedensel) hesaplanır; bar i'deki özellikler yalnızca <= i verisinden okunur.
+    Prefix üzerinde yeniden hesaplamayla birebir aynıdır (test ile kanıtlı) -> backtest hızlı ve look-ahead'siz."""
+    df: pd.DataFrame
+    a: dict
+    breakout_lookback: int
+
+
+def prepare(df: pd.DataFrame, *, breakout_lookback: int = 20, squeeze_pctile: float = 0.2) -> Prepared:
     c, h, l, v = df["close"], df["high"], df["low"], df["volume"]
     macd_l, macd_s, macd_h = ind.macd(c)
-    atr_s = ind.atr(h, l, c)
-    e20, e50, e200 = ind.ema(c, 20), ind.ema(c, 50), ind.ema(c, 200)
     mid, up, lo = ind.bollinger(c)
     width = (up - lo) / mid
     wp = ind.rolling_pctile(width, 100)
-    ph = ind.prior_high(h, breakout_lookback)
-    i = len(df) - 1
-    price, atr_v = float(c.iloc[i]), _f(atr_s.iloc[i])
-    vol_prev20 = v.iloc[i - 20:i].mean() if i >= 20 else float("nan")
+    e50 = ind.ema(c, 50)
     ret = c.pct_change()
-    sd = float(ret.iloc[i - 19:i + 1].std(ddof=0) * 100) if i >= 20 else float("nan")
-    slope = (float(e50.iloc[i] / e50.iloc[i - 10] - 1) * 100) if i >= 10 and not np.isnan(e50.iloc[i - 10]) else float("nan")
-    tb = df["taker_buy_quote"].iloc[i - 11:i + 1].sum() / max(df["quote_volume"].iloc[i - 11:i + 1].sum(), 1e-12)
-    bz = (price - mid.iloc[i]) / ((up.iloc[i] - mid.iloc[i]) / 2) if (up.iloc[i] - mid.iloc[i]) else 0.0
-    hn = _f(ph.iloc[i])
-    ob_imb = spread = depth = float("nan")
+    sq = (wp <= squeeze_pctile).astype(float).shift(1).rolling(5, min_periods=1).sum() > 0
+    arr = lambda s_: s_.to_numpy(dtype=float)  # noqa: E731
+    a = {
+        "c": arr(c), "h": arr(h), "l": arr(l), "v": arr(v), "qv": arr(df["quote_volume"]),
+        "tbq": arr(df["taker_buy_quote"]), "ct": df["close_time"].to_numpy(),
+        "macd": arr(macd_l), "macd_s": arr(macd_s), "macd_h": arr(macd_h), "atr": arr(ind.atr(h, l, c)),
+        "e20": arr(ind.ema(c, 20)), "e50": arr(e50), "e200": arr(ind.ema(c, 200)), "rsi": arr(ind.rsi(c)),
+        "mid": arr(mid), "up": arr(up), "lo": arr(lo), "wp": arr(wp), "ph": arr(ind.prior_high(h, breakout_lookback)),
+        "vprev20": arr(v.shift(1).rolling(20).mean()), "v5": arr(v.rolling(5).mean()),
+        "sd20": arr(ret.rolling(20).std(ddof=0) * 100), "e50_10": arr(e50.shift(10)),
+        "tb12": arr(df["taker_buy_quote"].rolling(12).sum()), "qv12": arr(df["quote_volume"].rolling(12).sum()),
+        "sup": arr(l.rolling(48, min_periods=1).min()), "res": arr(h.rolling(48, min_periods=1).max()),
+        "sq": sq.to_numpy(dtype=bool),
+    }
+    return Prepared(df, a, breakout_lookback)
+
+
+def features_at(p: Prepared, i: int, symbol: str, ticker: Ticker24h | None = None, book: OrderBook | None = None,
+                *, bars_per_day: int = 24) -> Features:
+    """i. KAPANMIŞ bardaki özellikler. i >= 1 olmalı."""
+    a = p.a
+    nan = float("nan")
+    price, atr_v = a["c"][i], a["atr"][i]
+    vp = a["vprev20"][i]
+    vp_ok = i >= 20 and not np.isnan(vp) and vp != 0
+    e50_10 = a["e50_10"][i]
+    slope = (a["e50"][i] / e50_10 - 1) * 100 if i >= 10 and not np.isnan(e50_10) else nan
+    tb = a["tb12"][i] / max(a["qv12"][i], 1e-12)
+    up_, mid_ = a["up"][i], a["mid"][i]
+    bz = (price - mid_) / ((up_ - mid_) / 2) if (up_ - mid_) else 0.0
+    hn = a["ph"][i]
+    ob_imb = spread = depth = nan
     if book is not None and book.bids and book.asks:
         ob_imb = float(book.imbalance(10) or 0)
         spread = float(book.spread_pct or 0)
         m = (float(book.bids[0][0]) + float(book.asks[0][0])) / 2
-        depth = sum(float(p * q) for p, q in book.bids if float(p) >= m * 0.99) + \
-            sum(float(p * q) for p, q in book.asks if float(p) <= m * 1.01)
-    win = df.iloc[max(0, i - 47):i + 1]
+        depth = sum(float(pp * q) for pp, q in book.bids if float(pp) >= m * 0.99) + \
+            sum(float(pp * q) for pp, q in book.asks if float(pp) <= m * 1.01)
+    if ticker is not None:
+        chg, qv24 = float(ticker.price_change_pct), float(ticker.quote_volume)
+    else:  # veriden türet (backtest)
+        chg = (price / a["c"][i - bars_per_day] - 1) * 100 if i >= bars_per_day else nan
+        qv24 = float(a["qv"][max(0, i - bars_per_day + 1):i + 1].sum())
     return Features(
-        symbol=symbol, price=price, change_24h_pct=float(ticker.price_change_pct) if ticker else float("nan"),
-        quote_volume_24h=float(ticker.quote_volume) if ticker else float(df["quote_volume"].iloc[-24:].sum()),
-        volume_ratio=float(v.iloc[i] / vol_prev20) if vol_prev20 and not np.isnan(vol_prev20) else float("nan"),
-        volume_trend=float(v.iloc[i - 4:i + 1].mean() / vol_prev20) if vol_prev20 and not np.isnan(vol_prev20) else float("nan"),
-        volatility_pct=sd, atr=atr_v, atr_pct=atr_v / price * 100 if price else float("nan"),
-        rsi=_f(ind.rsi(c).iloc[i]), macd=_f(macd_l.iloc[i]), macd_signal=_f(macd_s.iloc[i]),
-        macd_hist=_f(macd_h.iloc[i]), macd_hist_prev=_f(macd_h.iloc[i - 1]),
-        ema20=_f(e20.iloc[i]), ema50=_f(e50.iloc[i]), ema200=_f(e200.iloc[i]), ema50_slope_pct=slope,
-        momentum_pct=float((price / c.iloc[i - 12] - 1) * 100) if i >= 12 else float("nan"),
+        symbol=symbol, price=float(price), change_24h_pct=chg, quote_volume_24h=qv24,
+        volume_ratio=float(a["v"][i] / vp) if vp_ok else nan,
+        volume_trend=float(a["v5"][i] / vp) if vp_ok else nan,
+        volatility_pct=float(a["sd20"][i]) if i >= 20 else nan, atr=float(atr_v),
+        atr_pct=float(atr_v / price * 100) if price else nan, rsi=float(a["rsi"][i]), macd=float(a["macd"][i]),
+        macd_signal=float(a["macd_s"][i]), macd_hist=float(a["macd_h"][i]), macd_hist_prev=float(a["macd_h"][i - 1]),
+        ema20=float(a["e20"][i]), ema50=float(a["e50"][i]), ema200=float(a["e200"][i]), ema50_slope_pct=float(slope),
+        momentum_pct=float((price / a["c"][i - 12] - 1) * 100) if i >= 12 else nan,
         ob_imbalance=ob_imb, spread_pct=spread, depth_quote_1pct=depth, taker_buy_ratio=float(tb),
-        support=float(win["low"].min()), resistance=float(win["high"].max()), high_n=hn,
+        support=float(a["sup"][i]), resistance=float(a["res"][i]), high_n=float(hn),
         breakout_up=bool(not np.isnan(hn) and price > hn),
-        breakout_strength_atr=(price - hn) / atr_v if (not np.isnan(hn) and atr_v) else float("nan"),
-        bb_mid=_f(mid.iloc[i]), bb_upper=_f(up.iloc[i]), bb_lower=_f(lo.iloc[i]), bb_zscore=float(bz),
-        bb_width_pctile=_f(wp.iloc[i]),
-        squeeze_recent=bool((wp.iloc[max(0, i - 5):i] <= squeeze_pctile).any()),
-        last_range_atr=float((h.iloc[i] - l.iloc[i]) / atr_v) if atr_v else float("nan"),
-        last_close_time=int(df["close_time"].iloc[i]))
+        breakout_strength_atr=float((price - hn) / atr_v) if (not np.isnan(hn) and atr_v) else nan,
+        bb_mid=float(mid_), bb_upper=float(up_), bb_lower=float(a["lo"][i]), bb_zscore=float(bz),
+        bb_width_pctile=float(a["wp"][i]), squeeze_recent=bool(a["sq"][i]),
+        last_range_atr=float((a["h"][i] - a["l"][i]) / atr_v) if atr_v else nan,
+        last_close_time=int(a["ct"][i]))
+
+
+def compute_features(symbol: str, df: pd.DataFrame, ticker: Ticker24h | None, book: OrderBook | None,
+                     *, breakout_lookback: int = 20, squeeze_pctile: float = 0.2,
+                     min_bars: int = 60) -> Features | None:
+    """df: KAPANMIŞ mumlar. Yetersiz veri -> None. (Canlı tarama: son bar için özellikler.)"""
+    if len(df) < min_bars:
+        return None
+    p = prepare(df, breakout_lookback=breakout_lookback, squeeze_pctile=squeeze_pctile)
+    return features_at(p, len(df) - 1, symbol, ticker, book)
