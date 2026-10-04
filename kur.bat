@@ -45,7 +45,7 @@ if exist "%TARGET%\.git" (
   git -C "%TARGET%" checkout %BRANCH%
   git -C "%TARGET%" pull origin %BRANCH%
 ) else (
-  echo (GitHub giris penceresi acilirsa hesabinla giris yap)
+  echo GitHub giris penceresi acilirsa hesabinla giris yap.
   git clone --branch %BRANCH% %REPO% "%TARGET%"
 )
 if errorlevel 1 ( echo HATA: proje indirilemedi. & pause & exit /b 1 )
