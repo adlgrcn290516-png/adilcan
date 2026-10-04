@@ -1,0 +1,41 @@
+# BINANCE AI TRADING SYSTEM — Mimari
+
+## Doğrulanmış temel kararlar (repo kaynaklarından)
+| Konu | Bulgu | Kaynak |
+|---|---|---|
+| SDK | Resmi SDK artık **modüler** (`binance-sdk-spot`, `-alpha`, `-derivatives-trading-usds-futures`, `-convert`, `-algo`). `binance-futures-connector-python` **DEPRECATED** → kullanılmıyor. | connector README, futures-connector README |
+| Spot ortamları | PROD `api.binance.com`, TESTNET `testnet.binance.vision`, DEMO `demo-api.binance.com` | spot-api-docs `testnet/` ve `demo-mode/`, `binance_common/constants.py` |
+| Futures ortamları | PROD `fapi.binance.com`, TESTNET ve DEMO (`demo-fapi.binance.com`) sabitleri SDK'da var | `constants.py` (emir endpointleri Faz 6'da metod metod doğrulanacak) |
+| **Alpha** | SDK'da yalnızca market-data: `aggregated_trades, full_depth, get_exchange_info, klines, ticker, token_list`. Emir/hesap yok, test ortamı yok → **DATA_ONLY / UNSUPPORTED_FOR_TRADING** | `clients/alpha/.../rest_api.py` |
+| Convert | Quote/limit emir var; orderbook/kline yok → tarama kaynağı değil | `clients/convert` |
+| Algo | Spot/Futures TWAP, Futures VP → *execution aracı*, sinyal kaynağı değil | `clients/algo` |
+| Weight | exchangeInfo 20, depth 5/25/50/250, klines 2, ticker24hr 2 (sembol) / 80 (hepsi), account 20, openOrders 6/80 | `rest-api.md` |
+| SDK hata modeli | `status_code` = **Binance hata kodu**, HTTP kodu değil → retry sınıf adına göre | `binance_common/errors.py` |
+| Freqtrade | Bağımlılık YOK; yalnızca fikir referansı (strategy interface, backtest, protections) | — |
+
+## Katmanlar ve ana döngü
+```
+Market Data → Universe Filter → Feature Calc → Strategy Engine → Composite Score
+ → Risk Engine → Portfolio Manager → Execution Engine → Order Verification
+ → Position Mgmt → Logging → Dashboard
+```
+```
+app/
+  config.py            Settings (yaml + .env), LIVE kilidi
+  exchange/            capabilities.py (CapabilityMatrix) · base.py · models.py · spot.py  [Faz1]
+                       futures.py [F6] · alpha.py convert.py algo.py [F7]
+  data/                kline/orderbook cache, SQLite repository'leri [F2-3]
+  core/                scanner, signal engine, strategy engine [F3]
+  strategies/          trend, momentum, breakout, volume_breakout, mean_reversion, vol_breakout [F3]
+  risk/ portfolio/     risk motoru (APPROVE/REDUCE/REJECT), pozisyon boyutu, emergency stop [F4]
+  execution/           filtre kontrolü, idempotent emir (clientOrderId), Binance'ten doğrulama [F2]
+  backtest/ paper/     aynı Strategy arayüzü, look-ahead yok, walk-forward [F2,F5]
+  dashboard/           [F8]
+  utils/               logging (secret maskeleme), retry (backoff), WeightLimiter
+```
+## Güvenlik ilkeleri
+1. Faz 1'de emir gönderen **hiçbir kod yok** (test ile kilitli: `test_no_order_methods_in_phase1`).
+2. `TRADING_MODE=live` ancak: `BINANCE_ENVIRONMENT=prod` + API key + `LIVE_TRADING_CONFIRM=I_UNDERSTAND_REAL_MONEY_WILL_BE_USED`. Aksi halde `Settings` oluşmaz.
+3. Secret'lar `SecretStr`, `.env` gitignore'da, loglar imza/anahtar maskeler.
+4. Ürün `trading=YES` değilse `require_trading()` PermissionError verir (Alpha vb.).
+5. 418 ban → API durdurulur (uyuyup denenmez); 429 → `Retry-After`'a uyulur; ağ/5xx → exponential backoff + jitter.

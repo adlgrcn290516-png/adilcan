@@ -1,0 +1,12 @@
+binance-sdk-spot>=13.0.0
+binance-sdk-alpha>=4.4.0
+binance-sdk-derivatives-trading-usds-futures>=17.5.0
+binance-sdk-convert>=5.4.0
+binance-sdk-algo>=3.5.0
+pydantic>=2.10
+pyyaml>=6
+python-dotenv>=1.0
+numpy
+pandas
+pytest
+pytest-asyncio
