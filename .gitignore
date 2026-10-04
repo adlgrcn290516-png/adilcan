@@ -9,5 +9,5 @@ __pycache__/
 logs/
 .pytest_cache/
 reference/
-data/
-reports/
+/data/
+/reports/
