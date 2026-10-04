@@ -1,8 +1,10 @@
-"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities | scan-data"""
+"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo"""
 from __future__ import annotations
 
 import argparse
 import sys
+import time
+from decimal import Decimal
 
 from app.config import load_settings
 from app.exchange import capabilities
@@ -52,6 +54,54 @@ def cmd_check(_a, s) -> int:
     return 0
 
 
+def cmd_paper_demo(a, s) -> int:
+    """Gerçek piyasa verisi + SANAL para. Hiçbir emir Binance'e gitmez."""
+    from app.data.db import SqliteDb, SqliteOrderRepository
+    from app.execution.engine import ExecutionEngine
+    from app.execution.filters import floor_to_step
+    from app.execution.types import OrderRejected, OrderRequest, OrderType, Side
+    from app.paper.broker import PaperBroker
+
+    ad = BinanceSpotAdapter(s)
+    info = ad.exchange_info()
+    sym = a.symbol.upper()
+    if sym not in info:
+        print(f"[HATA] {sym} bulunamadı")
+        return 2
+    si = info[sym]
+    broker = PaperBroker({si.quote: Decimal(str(a.capital))}, info, lambda x: ad.order_book(x, 20))
+    repo = SqliteOrderRepository(SqliteDb(a.db))
+    eng = ExecutionEngine(broker, info, repo, s)
+    print(f"PAPER (sanal para) | {sym} | başlangıç: {a.capital} {si.quote} | komisyon %0.1 + slippage 2bps\n")
+
+    ask = ad.order_book(sym, 5).asks[0][0]
+    qty = Decimal(str(a.budget)) / ask
+    iid = str(int(time.time()))
+    buy = OrderRequest(sym, Side.BUY, OrderType.MARKET, qty, None, ask, "paper-demo", iid)
+    b = eng.place(buy)
+    print(f"1) BUY  {b.symbol}: durum={b.status.value} doğrulandı={b.verified} miktar={b.executed_qty} "
+          f"ort.fiyat={b.avg_price:.4f} komisyon={b.fee_amount:f} {b.fee_asset}")
+
+    dup = eng.place(buy)
+    print(f"2) AYNI EMİR TEKRAR: yeni emir gönderilmedi -> mevcut durum={dup.status.value} (duplicate koruması)")
+
+    try:
+        eng.place(OrderRequest(sym, Side.BUY, OrderType.MARKET, Decimal("0.0000001"), None, ask, "paper-demo", iid + "x"))
+    except OrderRejected as e:
+        print(f"3) Çok küçük emir YEREL olarak reddedildi (borsaya gitmedi): {e}")
+
+    held = floor_to_step(broker.free_balance(si.base), si.step_size)
+    bid = ad.order_book(sym, 5).bids[0][0]
+    sell = eng.place(OrderRequest(sym, Side.SELL, OrderType.MARKET, held, None, bid, "paper-demo", iid + "s"))
+    print(f"4) SELL {sell.symbol}: durum={sell.status.value} doğrulandı={sell.verified} miktar={sell.executed_qty} "
+          f"ort.fiyat={sell.avg_price:.4f}")
+    end = broker.free_balance(si.quote)
+    pnl = end - Decimal(str(a.capital))
+    print(f"\nSonuç: {end:.4f} {si.quote} | alıp-hemen-satma maliyeti (spread+slippage+komisyon): {pnl:.4f} {si.quote}")
+    print(f"Kayıt: {a.db} ({len(repo.all())} emir). Not: gerçek para/emir YOK.")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="main.py")
     ap.add_argument("--config", default="config.yaml")
@@ -59,11 +109,16 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check", help="Bağlantı + market data + account data doğrulaması (salt okunur)")
     sub.add_parser("capabilities", help="Ürün yetenek matrisi")
+    pd = sub.add_parser("paper-demo", help="Sanal parayla emir motoru demosu (gerçek emir YOK)")
+    pd.add_argument("--symbol", default="BTCUSDT")
+    pd.add_argument("--budget", type=float, default=50.0, help="alım bütçesi (quote)")
+    pd.add_argument("--capital", type=float, default=1000.0, help="sanal başlangıç bakiyesi")
+    pd.add_argument("--db", default="data/paper.db")
     a = ap.parse_args(argv)
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2

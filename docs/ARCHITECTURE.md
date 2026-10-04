@@ -34,7 +34,9 @@ app/
   utils/               logging (secret maskeleme), retry (backoff), WeightLimiter
 ```
 ## Güvenlik ilkeleri
-1. Faz 1'de emir gönderen **hiçbir kod yok** (test ile kilitli: `test_no_order_methods_in_phase1`).
+1. `BinanceSpotAdapter` (veri) emir metodu içermez (test ile kilitli). Emirler yalnızca `execution/` altındaki `Broker`'lardan geçer. `SpotBinanceBroker` PROD'da `execution/safety.py::REAL_MONEY_ENABLED=False` olduğu sürece **oluşturulamaz** (yalnızca demo/testnet). Bu bayrak config/env ile açılamaz.
+1b. SDK `float`'ı `str()` ile yollar (`0.00001`→`1e-05`); emirlerde miktar/fiyat her zaman düz string (testle kilitli).
+1c. Emir yaşam döngüsü: dedupe(DB UNIQUE intent) → emergency stop → filtre → bakiye → write-ahead kayıt → gönder (belirsiz hatada önce `get_order`) → `get_order` ile doğrula.
 2. `TRADING_MODE=live` ancak: `BINANCE_ENVIRONMENT=prod` + API key + `LIVE_TRADING_CONFIRM=I_UNDERSTAND_REAL_MONEY_WILL_BE_USED`. Aksi halde `Settings` oluşmaz.
 3. Secret'lar `SecretStr`, `.env` gitignore'da, loglar imza/anahtar maskeler.
 4. Ürün `trading=YES` değilse `require_trading()` PermissionError verir (Alpha vb.).
