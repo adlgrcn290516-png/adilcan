@@ -13,7 +13,7 @@ from app.backtest import report as R
 from app.backtest.ablation import run_ablation
 from app.backtest.control import random_control, summarize
 from app.backtest.engine import BacktestCfg, Backtester, SignalCache, make_variant
-from app.backtest.walkforward import default_grid, split_points, walk_forward
+from app.backtest.walkforward import default_grid, quick_grid, split_points, walk_forward
 from app.config import Settings
 
 
@@ -44,6 +44,30 @@ def save_trades(path: Path, trades: list[M.Trade]) -> None:
         for t in trades:
             w.writerow([t.symbol, t.entry_ts, t.exit_ts, t.entry_price, t.exit_price, t.qty, round(t.pnl, 6),
                         round(t.pnl_pct, 4), round(t.r_multiple, 3), "|".join(t.reasons), t.bars_held, round(t.fees, 6)])
+
+
+CRITERIA = ("OOS toplam getiri > 0 ve OOS profit factor >= 1.2", "OOS işlem sayısı >= 100",
+            "OOS işlem başı beklenti, rastgele giriş kontrolünden >= +0.30 puan iyi",
+            "Holdout (seçilen parametre) getirisi > 0 ve profit factor >= 1.1")
+
+
+def decision_block(wf, ctrl_sm) -> str:
+    """Bir strateji ailesi ancak TÜM kriterleri geçerse 'GEÇTİ' sayılır. Eşikler yeni sonuç görülmeden önce sabitlendi."""
+    if wf is None or not wf.folds:
+        return "Walk-forward çalışmadı: karar verilemez."
+    o, h = wf.oos_metrics, wf.holdout_chosen or {}
+    pf = o.get("profit_factor", float("nan"))
+    hpf = h.get("profit_factor", float("nan"))
+    checks = [
+        (CRITERIA[0], o.get("total_return", -1) > 0 and pf == pf and pf >= 1.2),
+        (CRITERIA[1], o.get("n_trades", 0) >= 100),
+        (CRITERIA[2], ctrl_sm is not None and (o.get("expectancy_pct", -9) - ctrl_sm["mean_exp_pct"]) >= 0.30),
+        (CRITERIA[3], h.get("total_return", -1) > 0 and hpf == hpf and hpf >= 1.1),
+    ]
+    L = [f"  [{'GEÇTİ' if ok else 'KALDI'}] {c}" for c, ok in checks]
+    L.append("  >>> SONUÇ: " + ("TÜM kriterler geçti (yine de ileri-test/paper gerekir; canlı için yeterli DEĞİL)."
+                               if all(ok for _, ok in checks) else "KALDI — bu strateji ailesi için canlıya geçmek için dayanak YOK."))
+    return "\n".join(L)
 
 
 def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: ResearchOpts, infos=None,
@@ -90,20 +114,25 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
     if report_dir:
         save_trades(report_dir / "baseline_trades.csv", base.trades)
 
+    ctrl_sm = None
     # 1b) Rastgele giriş kontrolü
     if not opts.skip_control:
         n_runs = 8 if opts.quick else 20
         progress(f"[2/4] rastgele-giriş kontrolü ({n_runs} deneme)...")
         ctrl = random_control(cache, settings, cfg, t0, t1, base.n_signals, n_runs, infos, lambda m: progress(m))
-        sm = summarize(ctrl, base.metrics["total_return"])
+        sm = summarize(ctrl, base.metrics["total_return"], base.metrics["expectancy_pct"])
         add("\n" + "-" * 78 + "\n1b) KONTROL DENEYİ — aynı risk/pozisyon kuralları + maliyetler, ama RASTGELE zamanlarda giriş\n" + "-" * 78)
         add(f"  {n_runs} rastgele deneme (ort. {sm['mean_trades']:.0f} işlem): getiri ort. {R.pct(sm['mean'])}, medyan {R.pct(sm['median'])}, "
             f"aralık [{R.pct(sm['min'])} … {R.pct(sm['max'])}], işlem başına ort. {sm['mean_exp_pct']:.2f}%")
-        add(f"  Sinyal motoru (baseline): {R.pct(base.metrics['total_return'])} → rastgele denemelerin %{sm['pctile'] * 100:.0f}'inden iyi")
-        if sm["pctile"] < 0.9:
-            add("  BULGU: Sinyal, rastgele girişlerden ANLAMLI şekilde (≥%90) iyi DEĞİL → sinyal motorunun ek değeri kanıtlanamadı.")
+        add(f"  Sinyal motoru: işlem başına {base.metrics['expectancy_pct']:.2f}% | rastgele: {sm['mean_exp_pct']:.2f}% | "
+            f"fark {sm['exp_edge_pp']:+.2f} puan/işlem (rastgele denemelerin %{sm['pctile_exp'] * 100:.0f}'inden iyi)")
+        add(f"  Getiri kıyası: sinyal {R.pct(base.metrics['total_return'])} vs rastgele ort. {R.pct(sm['mean'])}"
+            + ("  [İFLAS bölgesi: bileşik getiri artık bilgi taşımaz, işlem başına beklentiye bak]" if base.metrics["total_return"] < -0.9 else ""))
+        if sm["exp_edge_pp"] < 0.10:
+            add("  BULGU: Sinyal, rastgele girişlerden işlem başına ANLAMLI (≥ +0.10 puan) şekilde iyi DEĞİL → sinyal motorunun ek değeri YOK.")
         else:
-            add("  Sinyal rastgele girişlerin ≥%90'ından iyi (yine de OOS/holdout ile teyit gerekir).")
+            add("  Sinyal, rastgele girişlerden işlem başına ≥ +0.10 puan iyi (yine de OOS/holdout ile teyit gerekir).")
+        ctrl_sm = sm
 
     # 2) Ablation (yalnız holdout öncesi)
     if not opts.skip_ablation:
@@ -119,7 +148,7 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
     wf = None
     if not opts.skip_wf:
         progress("[4/4] walk-forward + holdout (birkaç dakika sürebilir)...")
-        grid = default_grid()[:6] if opts.quick else default_grid()
+        grid = quick_grid() if opts.quick else default_grid()
         wf = walk_forward(cache, settings, cfg, grid=grid, train_days=opts.train_days, test_days=opts.test_days,
                           holdout_frac=opts.holdout_frac, min_trades=opts.min_trades, objective=opts.objective, infos=infos,
                           progress=lambda m: progress("   " + m))
@@ -150,6 +179,8 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
             if report_dir:
                 save_trades(report_dir / "oos_trades.csv", wf.oos_trades)
 
+    add("\n" + "-" * 78 + "\nKARAR KRİTERLERİ (sonuçlar görülmeden ÖNCE sabitlendi)\n" + "-" * 78)
+    add(decision_block(wf, ctrl_sm))
     add("\n" + "-" * 78 + "\nSINIRLAMALAR (sonuçları okurken MUTLAKA hesaba kat)\n" + "-" * 78)
     for x in [
         "Sembol listesi BUGÜNKÜ hacme göre seçilir → hayatta kalma (survivorship) yanlılığı: bugün büyük olanlar geçmişte kazananlardı.",

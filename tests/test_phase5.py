@@ -299,3 +299,28 @@ def test_assess_says_no_edge_not_overfit_when_training_never_wins():
     r2 = WFResult(folds2, [], [], m, {}, Counter(f"p{i}" for i in range(6)), None, None, (0, 0))
     v2 = " ".join(assess(r2, "sharpe", 10))
     assert "aşırı uyum" in v2.lower() and "KENAR YOKLUĞU" not in v2
+
+
+def test_control_summary_uses_per_trade_expectancy_and_quick_grid_covers_thresholds():
+    from app.backtest.control import summarize
+    from app.backtest.walkforward import quick_grid
+    ctrl = [{"return": -0.981, "pf": 0.5, "exp_pct": -0.53, "trades": 4000, "sharpe": -4} for _ in range(5)]
+    sm = summarize(ctrl, baseline_return=-0.9795, baseline_exp_pct=-0.56)
+    assert sm["exp_edge_pp"] == pytest.approx(-0.03) and sm["pctile_exp"] == 0.0   # getiri kıyası %100 derdi; beklenti kıyası DEĞİL
+    assert {g["scoring.buy_score_threshold"] for g in quick_grid()} == {58.0, 65.0, 72.0}
+
+
+def test_decision_block_requires_all_criteria():
+    from collections import Counter
+    from app.backtest.research import decision_block
+    from app.backtest.walkforward import Fold, WFResult
+    good = {"n_trades": 300, "total_return": 0.2, "profit_factor": 1.4, "expectancy_pct": 0.5, "sharpe": 1.0}
+    f = [Fold(1, (0, 1), (2, 3), {}, 1.0, 1.0, good, good, 6, 0.5)]
+    r = WFResult(f, [], [], good, {}, Counter(), good, good, (0, 0))
+    ok = decision_block(r, {"mean_exp_pct": 0.0})
+    assert "KALDI" not in ok and "TÜM kriterler geçti" in ok
+    bad_h = {**good, "total_return": -0.1}
+    r2 = WFResult(f, [], [], good, {}, Counter(), bad_h, good, (0, 0))
+    assert "KALDI — " in decision_block(r2, {"mean_exp_pct": 0.0})
+    assert "KALDI — " in decision_block(r, {"mean_exp_pct": 0.4})       # rastgeleye göre +0.30 puan yok
+    assert "KALDI — " in decision_block(r, None)

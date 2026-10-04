@@ -45,9 +45,13 @@ def random_control(cache: SignalCache, settings: Settings, cfg: BacktestCfg, sta
     return out
 
 
-def summarize(ctrl: list[dict], baseline_return: float) -> dict:
+def summarize(ctrl: list[dict], baseline_return: float, baseline_exp_pct: float = float("nan")) -> dict:
     r = np.array([c["return"] for c in ctrl])
+    e = np.array([c["exp_pct"] for c in ctrl])
     return {"mean": float(r.mean()), "median": float(np.median(r)), "min": float(r.min()), "max": float(r.max()),
             "std": float(r.std()), "pctile": float((r < baseline_return).mean()),
             "mean_trades": float(np.mean([c["trades"] for c in ctrl])),
-            "mean_exp_pct": float(np.mean([c["exp_pct"] for c in ctrl]))}
+            "mean_exp_pct": float(e.mean()),
+            # İŞLEM BAŞINA beklenti kıyası: bileşik getiri sıfıra yakınsa (iflas) getiri kıyası anlamsızdır
+            "exp_edge_pp": float(baseline_exp_pct - e.mean()),
+            "pctile_exp": float((e < baseline_exp_pct).mean()) if baseline_exp_pct == baseline_exp_pct else float("nan")}

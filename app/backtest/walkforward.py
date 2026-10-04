@@ -29,6 +29,12 @@ def default_grid() -> list[dict]:
     return out
 
 
+def quick_grid() -> list[dict]:
+    """Hızlı mod: tam ızgaradan, TÜM eşik değerlerini kapsayan 6 kombinasyon (ilk-6 kesmesi yalnızca eşik=58'i içeriyordu)."""
+    g = default_grid()
+    return [g[i] for i in (0, 4, 8, 11, 14, 17)]
+
+
 def objective_value(m: dict, name: str, min_trades: int) -> float:
     if m["n_trades"] < min_trades:
         return float("-inf")
