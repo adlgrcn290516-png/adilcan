@@ -156,7 +156,7 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
         "Tek bir piyasa rejimi/dönemi: boğa/ayı/yatay farklı davranır; birkaç ay veri güvenilir sonuç vermez.",
         "Order book geçmişi yok: spread/derinlik/likidite risk kontrolleri backtest'te UYGULANAMIYOR (sonuçlar buna göre İYİMSER).",
         "Piyasa etkisi (emir büyüklüğünün fiyatı oynatması) yok: küçük sermayede makul, büyük sermayede iyimser.",
-        "Bar içi sıra bilinmez: KÖTÜMSER varsayım (stop önce). Gerçek sonuç bundan iyi ya da kötü olabilir.",
+        "Bar içi sıra bilinmez: KÖTÜMSER varsayım (stop önce). Kenarsız sentetik rastgele yürüyüşte, rastgele girişle ve SIFIR maliyetle bile ~-0.13%/işlem sapma ürettiği ÖLÇÜLDÜ → mutlak getiriler fazla kötümserdir; asıl adil karşılaştırma aynı motorda sinyal-vs-rastgele (bölüm 1b).",
         "Izgara küçük tutuldu ama yine de çoklu deneme etkisi vardır; asıl kanıt OOS + holdout'tur.",
         "İstatistiksel anlamlılık için yüzlerce işlem gerekir; az işlemli sonuçlar şans olabilir.",
         "Bu rapor KÂR GARANTİSİ DEĞİLDİR. Geçmiş performans gelecekteki sonuçları garanti etmez.",
