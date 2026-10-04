@@ -64,7 +64,7 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
         f"maks pozisyon {settings.risk.max_open_positions}")
 
     # 1) Baseline: tüm dönem, varsayılan parametre
-    progress("[1/3] baseline backtest...")
+    progress("[1/3] baseline backtest (ilk hesaplama en uzun sürer)...")
     bt = Backtester(cache, make_variant(settings, cache), settings, cfg, infos)
     base = bt.run(t0, t1)
     bh = M.buy_and_hold(data, t0, t1)
@@ -83,7 +83,7 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
     # 2) Ablation (yalnız holdout öncesi)
     if not opts.skip_ablation:
         progress("[2/3] katkı (ablation) analizi...")
-        rows = run_ablation(cache, settings, cfg, t0, hold_start, infos)
+        rows = run_ablation(cache, settings, cfg, t0, hold_start, infos, progress)
         add("\n" + "-" * 78 + "\n2) KATKI ANALİZİ (ablation) — holdout ÖNCESİ dönem, in-sample/AÇIKLAYICI\n" + "-" * 78)
         add(R.ablation_table(rows))
         add("Okuma: ΔGetiri > 0 olan '- X çıkarıldı' satırı, X'in bu veride ZARARA katkı yaptığını düşündürür; "

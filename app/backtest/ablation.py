@@ -8,12 +8,14 @@ COMPONENTS = ["trend", "momentum", "volume", "breakout", "volatility", "liquidit
 
 
 def run_ablation(cache: SignalCache, settings: Settings, cfg: BacktestCfg, start_ts: int, end_ts: int,
-                 infos=None) -> list[dict]:
+                 infos=None, progress=None) -> list[dict]:
     names = [s.name for s in cache.strats]
     rows: list[dict] = []
 
     def go(label: str, s: Settings | None = None, c: BacktestCfg | None = None, only=None, solo=None):
         s = s or settings
+        if progress:
+            progress(f"   ablation: {label}")
         r = Backtester(cache, make_variant(s, cache, only, solo), s, c or cfg, infos).run(start_ts, end_ts)
         m = r.metrics
         rows.append({"variant": label, "trades": m["n_trades"], "return": m["total_return"], "maxdd": m["max_drawdown"],

@@ -239,6 +239,7 @@ def cmd_fetch_history(a, s) -> int:
 
 
 def cmd_research(a, s) -> int:
+    import time as _t
     from pathlib import Path
     from app.backtest.engine import BacktestCfg
     from app.backtest.research import ResearchOpts, run_research
@@ -271,19 +272,41 @@ def cmd_research(a, s) -> int:
     if len(data) < 2:
         print("[HATA] yeterli veri yok")
         return 2
+    t_start = _t.time()
     text = run_research(data, s, cfg, opts, infos, Path(a.report_dir))
     print(text)
-    if a.copy_to:
-        Path(a.copy_to).write_text(text, encoding="utf-8")
-        print(f"\nRapor kopyası: {a.copy_to}")
+    print(f"\n[Toplam süre: {(_t.time() - t_start) / 60:.1f} dk] [RAPOR TAMAMLANDI]")
     print(f"\nRapor ve işlem listeleri: {a.report_dir}/")
     return 0
+
+
+class _Tee:
+    """Ekrana yazılanı aynı anda dosyaya da (anında flush) yazar: donsa/çökse bile dosyada iz kalır."""
+
+    def __init__(self, stream, fh):
+        self.stream, self.fh = stream, fh
+
+    def write(self, text):
+        self.stream.write(text)
+        try:
+            self.fh.write(text)
+            self.fh.flush()
+        except Exception:  # noqa: BLE001
+            pass
+        return len(text)
+
+    def flush(self):
+        self.stream.flush()
+
+    def __getattr__(self, n):
+        return getattr(self.stream, n)
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="main.py")
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--log-level", default="INFO")
+    ap.add_argument("--debug", action="store_true", help="hata olursa ayrıntılı iz (traceback) yaz")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("check", help="Bağlantı + market data + account data doğrulaması (salt okunur)")
     sub.add_parser("capabilities", help="Ürün yetenek matrisi")
@@ -334,12 +357,21 @@ def main(argv=None) -> int:
     rs.add_argument("--quick", action="store_true", help="küçük ızgara")
     rs.add_argument("--synthetic", type=int, default=0, help="çevrimdışı demo: N sentetik sembol")
     a = ap.parse_args(argv)
+    if getattr(a, "copy_to", ""):
+        from pathlib import Path as _P
+        _P(a.copy_to).parent.mkdir(parents=True, exist_ok=True)
+        fh = open(a.copy_to, "w", encoding="utf-8")
+        sys.stdout, sys.stderr = _Tee(sys.stdout, fh), _Tee(sys.stderr, fh)
+        print(f"[Bu çıktı canlı olarak şu dosyaya da yazılıyor: {a.copy_to}]")
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
         return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
+        if a.debug:
+            import traceback
+            traceback.print_exc()
         return 2
 
 
