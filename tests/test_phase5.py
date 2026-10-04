@@ -259,3 +259,43 @@ def test_wf_chained_exposure_is_consistent_and_research_report(tmp_path):
     exp = wf.oos_metrics["exposure"]
     folds_exp = [f.oos_metrics["exposure"] for f in wf.folds]
     assert 0 <= exp <= 1 and min(folds_exp) - 0.05 <= exp <= max(folds_exp) + 0.05
+
+
+def test_edge_mode_keeps_trading_after_drawdown_while_real_mode_latches():
+    s = with_params(Settings(), {"scoring.buy_score_threshold": 50.0, "scoring.min_strategy_votes": 1,
+                                 "risk.max_drawdown_pct": 0.03})
+    data = {f"S{k}USDT": gbm_df(3000, seed=200 + k) for k in range(3)}
+    cache = SignalCache(data, s)
+    real = Backtester(cache, make_variant(s, cache), s, BacktestCfg()).run()
+    edge = Backtester(cache, make_variant(s, cache), s, BacktestCfg(latch_resets_daily=True)).run()
+    assert real.events and any("drawdown" in k for k in real.rejections)
+    assert edge.n_entries > real.n_entries                       # kilit günlük açılınca daha çok işlem görür
+    assert sum(v for k, v in edge.rejections.items() if "drawdown" in k) < sum(v for k, v in real.rejections.items() if "drawdown" in k)
+
+
+def test_random_control_is_deterministic_and_summarized():
+    from app.backtest.control import random_control, summarize
+    s = Settings()
+    data = {f"S{k}USDT": gbm_df(1500, seed=300 + k) for k in range(3)}
+    cache = SignalCache(data, s)
+    tl = cache.timeline_all()
+    cfg = BacktestCfg()
+    a = random_control(cache, s, cfg, tl[300], tl[-1], n_signals=60, n_runs=3)
+    b = random_control(cache, s, cfg, tl[300], tl[-1], n_signals=60, n_runs=3)
+    assert a == b and len(a) == 3 and all(x["trades"] > 0 for x in a)
+    sm = summarize(a, baseline_return=0.0)
+    assert 0 <= sm["pctile"] <= 1 and sm["min"] <= sm["median"] <= sm["max"]
+
+
+def test_assess_says_no_edge_not_overfit_when_training_never_wins():
+    from collections import Counter
+    from app.backtest.walkforward import Fold, WFResult, assess
+    m = {"n_trades": 100, "total_return": -0.2, "sharpe": -3.0}
+    folds = [Fold(i, (0, 1), (2, 3), {"a.b": i}, -2.0, -3.0, m, m, 18, -2.5) for i in range(1, 7)]
+    r = WFResult(folds, [], [], m, {}, Counter(f"p{i}" for i in range(6)), None, None, (0, 0))
+    v = " ".join(assess(r, "sharpe", 10))
+    assert "KENAR YOKLUĞU" in v and "Parametre kararsız" not in v
+    folds2 = [Fold(i, (0, 1), (2, 3), {"a.b": i}, 2.0, -3.0, m, m, 18, 1.0) for i in range(1, 7)]
+    r2 = WFResult(folds2, [], [], m, {}, Counter(f"p{i}" for i in range(6)), None, None, (0, 0))
+    v2 = " ".join(assess(r2, "sharpe", 10))
+    assert "aşırı uyum" in v2.lower() and "KENAR YOKLUĞU" not in v2

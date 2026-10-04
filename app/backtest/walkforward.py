@@ -145,7 +145,12 @@ def assess(r: WFResult, objective: str, min_trades: int) -> list[str]:
         v.append(f"UYARI: OOS toplam işlem sayısı çok az ({n} < 30): sonuçlar istatistiksel olarak ANLAMSIZ.")
     ins = [f.is_obj for f in r.folds if f.is_obj != float("-inf")]
     oos = [f.oos_obj for f in r.folds if f.oos_obj != float("-inf")]
-    if ins and oos and sum(ins) > 0:
+    is_pos = sum(1 for x in ins if x > 0)
+    no_is_edge = len(r.folds) >= 3 and is_pos <= len(r.folds) // 2
+    if no_is_edge:
+        v.append(f"BULGU: EĞİTİM pencerelerinde bile {len(r.folds) - is_pos}/{len(r.folds)} katmanda en iyi parametre {objective} ≤ 0 → "
+                 "bu AŞIRI UYUM değil, KENAR YOKLUĞU işareti (hiçbir parametre eğitimde bile kazanmadı).")
+    elif ins and oos and sum(ins) > 0:
         deg = (sum(oos) / len(oos)) / (sum(ins) / len(ins))
         v.append(f"IS->OOS bozulma oranı ({objective}): {deg:.2f} (1.0 = bozulma yok; <0.5 aşırı uyum işareti)")
         if deg < 0.5:
@@ -155,7 +160,7 @@ def assess(r: WFResult, objective: str, min_trades: int) -> list[str]:
     if r.oos_metrics.get("sharpe", 0) <= 0:
         v.append("BULGU: OOS Sharpe ≤ 0.")
     top = r.param_counts.most_common(1)[0][1] if r.param_counts else 0
-    if len(r.folds) >= 3 and top / len(r.folds) < 0.5:
+    if len(r.folds) >= 3 and top / len(r.folds) < 0.5 and not no_is_edge:
         v.append(f"UYARI: Parametre kararsız (en sık seçilen yalnızca {top}/{len(r.folds)} katmanda): tipik aşırı uyum belirtisi.")
     if not v:
         v.append("Belirgin aşırı uyum işareti yok (bu, kârlılık GARANTİSİ değildir).")

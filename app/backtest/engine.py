@@ -47,7 +47,7 @@ class BacktestCfg:
     initial_capital: float = 1000.0
     warmup_bars: int = 250            # EMA200 vb. oturması için (canlı tarama da 300 bar kullanır)
     apply_risk: bool = True           # False: yalnızca boyutlandırma (risk motoru değerini ölçmek için)
-    latch_resets_daily: bool = False  # araştırma modu: drawdown kilidi ertesi gün açılsın
+    latch_resets_daily: bool = False  # KENAR ÖLÇÜM modu: drawdown kilidi ertesi gün açılır (gerçek sistemde açılmaz!)
     exit_on_signal: bool = False      # stratejinin SELL (çıkış) sinyali pozisyonu kapatsın (canlıda henüz yok)
 
     def __post_init__(self):
@@ -74,10 +74,14 @@ class SignalCache:
         self.prep = {sym: prepare(df, breakout_lookback=settings.strategy.breakout_lookback,
                                   squeeze_pctile=settings.strategy.squeeze_pctile) for sym, df in data.items()}
         self.strats = [cls(settings.strategy) for cls in CLASSIC]
+        self._timeline = sorted({int(ct) for p in self.prep.values() for ct in p.a["ct"]})
         self.index = {sym: {int(ct): i for i, ct in enumerate(p.a["ct"])} for sym, p in self.prep.items()}
         self._hold = {st.name: SignalResult(st.name, Signal.HOLD) for st in self.strats}  # paylaşımlı HOLD (bellek)
         self._f: dict[tuple[str, int], Features] = {}
         self._o: dict[tuple[str, int], dict[str, SignalResult]] = {}
+
+    def timeline_all(self) -> list[int]:
+        return self._timeline
 
     def features(self, sym: str, i: int) -> Features:
         k = (sym, i)
@@ -291,6 +295,7 @@ class Backtester:
                 sod_day, sod_eq = day, eq
                 if cfg.latch_resets_daily and risk.drawdown_latched:
                     risk.drawdown_latched = False
+                    peak = eq  # kilit açılınca zirve yeniden temellendirilir (aksi halde hemen tekrar kilitlenir)
             peak = max(peak, eq)
             st = pstate(eq)
             was = risk.drawdown_latched

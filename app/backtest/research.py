@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +11,7 @@ import numpy as np
 from app.backtest import metrics as M
 from app.backtest import report as R
 from app.backtest.ablation import run_ablation
+from app.backtest.control import random_control, summarize
 from app.backtest.engine import BacktestCfg, Backtester, SignalCache, make_variant
 from app.backtest.walkforward import default_grid, split_points, walk_forward
 from app.config import Settings
@@ -25,6 +26,7 @@ class ResearchOpts:
     objective: str = "sharpe"
     skip_ablation: bool = False
     skip_wf: bool = False
+    skip_control: bool = False
     quick: bool = False
     synthetic: bool = False
 
@@ -50,6 +52,8 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
     add = L.append
     cache = SignalCache(data, settings)
     t0, hold_start, t1 = split_points(cache, cfg, opts.holdout_frac)
+    sys_cfg = cfg                                   # gerçek sistem: drawdown kilidi AÇILMAZ
+    cfg = replace(cfg, latch_resets_daily=True)     # KENAR ölçümü: kilit her gün açılır (yoksa dönem yarıda kesilir)
     nb = {s: len(df) for s, df in data.items()}
     if opts.synthetic:
         add("!!! SENTETİK (rastgele üretilmiş) VERİ: bu raporun sayıları GERÇEK PİYASAYI TEMSİL ETMEZ !!!\n")
@@ -63,26 +67,47 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
     add(f"Başlangıç sermayesi: {cfg.initial_capital:,.0f} | risk/işlem %{settings.risk.max_risk_per_trade_pct * 100:.1f} | "
         f"maks pozisyon {settings.risk.max_open_positions}")
 
-    # 1) Baseline: tüm dönem, varsayılan parametre
-    progress("[1/3] baseline backtest (ilk hesaplama en uzun sürer)...")
+    # 1) Baseline
+    progress("[1/4] baseline backtest (ilk hesaplama en uzun sürer)...")
     bt = Backtester(cache, make_variant(settings, cache), settings, cfg, infos)
     base = bt.run(t0, t1)
     bh = M.buy_and_hold(data, t0, t1)
     add("\n" + "-" * 78 + "\n1) BASELINE — tüm dönem, varsayılan parametreler (parametreler geçmişe UYDURULMADI)\n" + "-" * 78)
-    add(R.metrics_block(base.metrics, "AI Composite"))
+    add(R.metrics_block(base.metrics, "AI Composite — KENAR ÖLÇÜM modu (drawdown kilidi günlük açılır; tüm dönem işlem görür)"))
     add(f"  Sinyal {base.n_signals} → giriş {base.n_entries}; risk motoru reddi: {dict(base.rejections) or 'yok'}")
-    for e in base.events:
-        add("  OLAY: " + e)
+    sysr = Backtester(cache, make_variant(settings, cache), settings, sys_cfg, infos).run(t0, t1)
+    add(R.metrics_block(sysr.metrics, "\nAynı sistem, GERÇEK davranışla (drawdown kilidi bir kez devreye girince AÇILMAZ)"))
+    for e in sysr.events:
+        ts = int(e.split(":")[0])
+        add(f"  OLAY: kilit {_iso(ts)} tarihinde devreye girdi → dönemin %{(t1 - ts) / (t1 - t0) * 100:.0f}'inde yeni giriş YAPILAMADI")
+    free = Backtester(cache, make_variant(settings, cache), settings, replace(cfg, fee_rate=0.0, slippage_bps=0.0, half_spread_bps=0.0), infos).run(t0, t1)
+    add(R.metrics_block(free.metrics, "\nMALİYETSİZ (brüt) — komisyon/kayma/spread SIFIR: sinyalin ham öngörü gücü"))
+    add(f"  → Brüt beklenti {R.num(free.metrics['expectancy_pct'])}%/işlem; maliyetli beklenti {R.num(base.metrics['expectancy_pct'])}%/işlem. "
+        "Brüt de negatifse sorun maliyet değil, sinyalin kendisidir.")
     add(f"\nKIYAS (aynı dönemde SADECE TUTMAK): eşit ağırlıklı sepet {R.pct(bh['equal_weight'])}"
         + (f" | BTC {R.pct(bh['btc'])}" if bh.get("btc") is not None else ""))
-    add("  → Strateji, 'hiçbir şey yapmadan tutmak'tan iyi mi? Risk-ayarlı bakış için Sharpe ve MaxDD'ye bak; "
-        "tutmanın MaxDD'si genelde çok yüksektir.")
+    add("  → Sepet BUGÜNÜN büyük coinlerinden oluşur (hayatta kalma yanlılığı): 'tutmak' sonucu İYİMSER bir kıyastır.")
     if report_dir:
         save_trades(report_dir / "baseline_trades.csv", base.trades)
 
+    # 1b) Rastgele giriş kontrolü
+    if not opts.skip_control:
+        n_runs = 8 if opts.quick else 20
+        progress(f"[2/4] rastgele-giriş kontrolü ({n_runs} deneme)...")
+        ctrl = random_control(cache, settings, cfg, t0, t1, base.n_signals, n_runs, infos, lambda m: progress(m))
+        sm = summarize(ctrl, base.metrics["total_return"])
+        add("\n" + "-" * 78 + "\n1b) KONTROL DENEYİ — aynı risk/pozisyon kuralları + maliyetler, ama RASTGELE zamanlarda giriş\n" + "-" * 78)
+        add(f"  {n_runs} rastgele deneme (ort. {sm['mean_trades']:.0f} işlem): getiri ort. {R.pct(sm['mean'])}, medyan {R.pct(sm['median'])}, "
+            f"aralık [{R.pct(sm['min'])} … {R.pct(sm['max'])}], işlem başına ort. {sm['mean_exp_pct']:.2f}%")
+        add(f"  Sinyal motoru (baseline): {R.pct(base.metrics['total_return'])} → rastgele denemelerin %{sm['pctile'] * 100:.0f}'inden iyi")
+        if sm["pctile"] < 0.9:
+            add("  BULGU: Sinyal, rastgele girişlerden ANLAMLI şekilde (≥%90) iyi DEĞİL → sinyal motorunun ek değeri kanıtlanamadı.")
+        else:
+            add("  Sinyal rastgele girişlerin ≥%90'ından iyi (yine de OOS/holdout ile teyit gerekir).")
+
     # 2) Ablation (yalnız holdout öncesi)
     if not opts.skip_ablation:
-        progress("[2/3] katkı (ablation) analizi...")
+        progress("[3/4] katkı (ablation) analizi...")
         rows = run_ablation(cache, settings, cfg, t0, hold_start, infos, progress)
         add("\n" + "-" * 78 + "\n2) KATKI ANALİZİ (ablation) — holdout ÖNCESİ dönem, in-sample/AÇIKLAYICI\n" + "-" * 78)
         add(R.ablation_table(rows))
@@ -93,7 +118,7 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
     # 3) Walk-forward + holdout
     wf = None
     if not opts.skip_wf:
-        progress("[3/3] walk-forward + holdout (birkaç dakika sürebilir)...")
+        progress("[4/4] walk-forward + holdout (birkaç dakika sürebilir)...")
         grid = default_grid()[:6] if opts.quick else default_grid()
         wf = walk_forward(cache, settings, cfg, grid=grid, train_days=opts.train_days, test_days=opts.test_days,
                           holdout_frac=opts.holdout_frac, min_trades=opts.min_trades, objective=opts.objective, infos=infos,
@@ -117,6 +142,11 @@ def run_research(data: dict, settings: Settings, cfg: BacktestCfg, opts: Researc
                 add("  * " + v)
             if wf.holdout_chosen["total_return"] <= 0:
                 add("  * BULGU: Holdout getirisi ≤ 0 → canlıya geçmek için dayanak YOK.")
+            elif wf.holdout_chosen["total_return"] < hb["equal_weight"]:
+                add(f"  * UYARI: Holdout pozitif ({R.pct(wf.holdout_chosen['total_return'])}) ama sadece-tutmanın ({R.pct(hb['equal_weight'])}) ALTINDA. "
+                    "Yükselen piyasada long-only strateji pozitif görünür; bu KENAR kanıtı DEĞİL. Holdout tek bir kısa rejimdir "
+                    "ve seçilen parametre yüksek maruziyetli (gevşek eşik).")
+            add(f"  * Holdout süresi yalnızca {(wf.holdout_window[1] - wf.holdout_window[0]) / 86_400_000:.0f} gün: tek rejim, tek örnek.")
             if report_dir:
                 save_trades(report_dir / "oos_trades.csv", wf.oos_trades)
 

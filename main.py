@@ -247,7 +247,7 @@ def cmd_research(a, s) -> int:
     cfg = BacktestCfg(interval=a.interval, fee_rate=a.fee, slippage_bps=a.slippage, half_spread_bps=a.spread,
                       initial_capital=a.capital)
     opts = ResearchOpts(a.train_days, a.test_days, a.holdout, a.min_trades, a.objective, a.skip_ablation, a.skip_wf,
-                        a.quick, bool(a.synthetic))
+                        a.skip_control, a.quick, bool(a.synthetic))
     infos = None
     if a.synthetic:
         from app.backtest.synthetic import gbm_df
@@ -354,6 +354,7 @@ def main(argv=None) -> int:
     rs.add_argument("--copy-to", default="", help="raporun bir kopyasını bu dosyaya da yaz")
     rs.add_argument("--skip-ablation", action="store_true")
     rs.add_argument("--skip-wf", action="store_true")
+    rs.add_argument("--skip-control", action="store_true", help="rastgele-giriş kontrolünü atla")
     rs.add_argument("--quick", action="store_true", help="küçük ızgara")
     rs.add_argument("--synthetic", type=int, default=0, help="çevrimdışı demo: N sentetik sembol")
     a = ap.parse_args(argv)
