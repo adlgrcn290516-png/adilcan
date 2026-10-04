@@ -6,4 +6,7 @@ cd /d "%USERPROFILE%\adilcan"
 echo.
 if exist data\forward\heartbeat.json (echo Nabiz dosyasi: & type data\forward\heartbeat.json) else echo Nabiz dosyasi yok - kosucu hic calismamis.
 echo.
+echo ===== LOGUN SON 40 SATIRI =====
+if exist data\forward\runner.log powershell -NoProfile -Command "Get-Content data\forward\runner.log -Tail 40 -Encoding UTF8"
+echo.
 pause
