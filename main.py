@@ -1,4 +1,4 @@
-"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo"""
+"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan"""
 from __future__ import annotations
 
 import argparse
@@ -102,6 +102,42 @@ def cmd_paper_demo(a, s) -> int:
     return 0
 
 
+def cmd_scan(a, s) -> int:
+    """Piyasayı tarar, her sembole 0-100 fırsat skoru verir. SALT OKUNUR: emir yok."""
+    from app.core.scanner import MarketScanner
+    from app.data.db import SqliteDb, SqliteSignalRepository
+    from app.strategies.base import Signal
+
+    if a.interval:
+        s.scanner.interval = a.interval
+    if a.max_symbols:
+        s.universe.max_symbols = a.max_symbols
+    ad = BinanceSpotAdapter(s)
+    sc = MarketScanner(ad, s)
+    print(f"Tarama: interval={s.scanner.interval} | en fazla {s.universe.max_symbols} sembol | "
+          f"min 24s hacim {s.universe.min_quote_volume_24h:,.0f} {s.universe.quote_asset}")
+    opps = sc.scan(progress=lambda m: print("  " + m, end="\r", flush=True))
+    print(" " * 40)
+    repo = SqliteSignalRepository(SqliteDb(a.db))
+    for o in opps:
+        repo.record(o)
+    top = opps[: a.top or s.scanner.top_n_report]
+    print(f"{'Symbol':<12}{'Score':>6} {'Signal':<6}{'Conf':>5} {'Entry':>12}{'Stop':>12}{'TP1':>12}{'Risk':>5}  Reason")
+    for o in top:
+        f = lambda x: f"{x:.6g}" if x else "-"  # noqa: E731
+        print(f"{o.symbol:<12}{o.score:>6.0f} {o.signal.value:<6}{o.confidence:>5.2f} {f(o.entry):>12}{f(o.stop):>12}"
+              f"{f(o.tp1):>12}{o.risk_score:>5.0f}  {o.reason[:60]}")
+    buys = [o for o in opps if o.signal is Signal.BUY]
+    print(f"\n{len(opps)} sembol tarandı, {len(buys)} BUY sinyali. Kayıt: {a.db}")
+    show = buys[: a.details] or opps[: a.details]
+    print(f"\n--- İlk {len(show)} sembolün AÇIKLAMASI ---")
+    for o in show:
+        print("\n" + o.explain())
+    print("\nUYARI: Skor ağırlıkları/eşikler ÖNSEL varsayımdır; backtest (Faz 5) ile doğrulanmadı. "
+          "Bu çıktı yatırım tavsiyesi değildir; hiçbir emir gönderilmedi.")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="main.py")
     ap.add_argument("--config", default="config.yaml")
@@ -114,11 +150,17 @@ def main(argv=None) -> int:
     pd.add_argument("--budget", type=float, default=50.0, help="alım bütçesi (quote)")
     pd.add_argument("--capital", type=float, default=1000.0, help="sanal başlangıç bakiyesi")
     pd.add_argument("--db", default="data/paper.db")
+    sc = sub.add_parser("scan", help="Piyasayı tara, fırsat skorla (salt okunur)")
+    sc.add_argument("--top", type=int, default=0)
+    sc.add_argument("--details", type=int, default=3, help="kaç sembolün ayrıntılı açıklaması")
+    sc.add_argument("--interval", default="")
+    sc.add_argument("--max-symbols", type=int, default=0)
+    sc.add_argument("--db", default="data/trading.db")
     a = ap.parse_args(argv)
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2

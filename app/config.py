@@ -40,6 +40,45 @@ class RateLimitCfg(BaseModel):
 class UniverseCfg(BaseModel):
     quote_asset: str = "USDT"
     min_quote_volume_24h: float = 5_000_000
+    max_symbols: int = 40            # hacme göre ilk N sembol taranır (rate-limit dostu)
+    exclude_bases: list[str] = [     # stablecoin / fiat: trade edilecek "fırsat" değil
+        "USDC", "FDUSD", "TUSD", "USDP", "DAI", "BUSD", "USDE", "USD1", "PYUSD", "AEUR", "EUR", "EURI", "XUSD", "RLUSD"]
+
+
+class ScoringCfg(BaseModel):
+    """Bileşen ağırlıkları KOD İÇİNDE DEĞİL burada. Pozitif ağırlıklar toplamı 1'e normalize edilir;
+    risk_weight ceza katsayısıdır (ceza = risk_weight * risk_score)."""
+    trend_weight: float = 0.25
+    momentum_weight: float = 0.20
+    volume_weight: float = 0.15
+    breakout_weight: float = 0.15
+    volatility_weight: float = 0.05
+    liquidity_weight: float = 0.20
+    risk_weight: float = 0.25
+    buy_score_threshold: float = 65.0
+    max_risk_score: float = 70.0
+    min_strategy_votes: int = 2          # AI Composite: en az kaç strateji BUY demeli
+    min_vote_confidence: float = 0.5
+
+
+class StrategyCfg(BaseModel):
+    atr_stop_mult: float = 2.0
+    rr1: float = 1.5                     # TP1 = risk * rr1
+    rr2: float = 3.0                     # TP2 = risk * rr2
+    momentum_min_pct: float = 1.5        # 12 bar getiri eşiği
+    breakout_lookback: int = 20
+    volume_breakout_mult: float = 2.0
+    meanrev_z: float = -2.0
+    meanrev_rsi: float = 30.0
+    squeeze_pctile: float = 0.2
+
+
+class ScannerCfg(BaseModel):
+    interval: str = "1h"
+    kline_limit: int = 300
+    min_bars: int = 60
+    book_depth: int = 20
+    top_n_report: int = 10
 
 
 class RiskCfg(BaseModel):
@@ -58,6 +97,9 @@ class Settings(BaseModel):
     http: HttpCfg = HttpCfg()
     rate_limit: RateLimitCfg = RateLimitCfg()
     universe: UniverseCfg = UniverseCfg()
+    scoring: ScoringCfg = ScoringCfg()
+    strategy: StrategyCfg = StrategyCfg()
+    scanner: ScannerCfg = ScannerCfg()
     risk: RiskCfg = RiskCfg()
     api_key: SecretStr | None = None
     api_secret: SecretStr | None = None

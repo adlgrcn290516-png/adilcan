@@ -104,3 +104,28 @@ class SqliteOrderRepository(OrderRepository):
         with self.db.lock:
             rows = self.db.conn.execute("SELECT * FROM orders ORDER BY created_at").fetchall()
         return [_row_to_state(r) for r in rows]
+
+
+class SqliteSignalRepository:
+    """signals + strategy_results + market_snapshots tablolarına kayıt (kararlar sonradan incelenebilsin)."""
+
+    def __init__(self, db: SqliteDb):
+        self.db = db
+
+    def record(self, o) -> None:  # o: app.core.scanner.Opportunity
+        import json
+        with self.db.lock:
+            c = self.db.conn
+            c.execute("INSERT INTO signals(ts,symbol,market,score,signal,confidence,entry,stop,tp,reasons) "
+                      "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                      (o.ts, o.symbol, o.market, o.score, o.signal.value, o.confidence, o.entry, o.stop, o.tp1,
+                       json.dumps({"contributions": o.contributions, "note": o.reason})))
+            for v in o.votes:
+                c.execute("INSERT INTO strategy_results(ts,symbol,strategy,signal,confidence,detail) VALUES(?,?,?,?,?,?)",
+                          (o.ts, o.symbol, v["strategy"], v["signal"], v["confidence"], v["reason"]))
+            c.execute("INSERT INTO market_snapshots(ts,symbol,data) VALUES(?,?,?)", (o.ts, o.symbol, json.dumps(o.features)))
+            c.commit()
+
+    def count(self, table: str = "signals") -> int:
+        with self.db.lock:
+            return self.db.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]

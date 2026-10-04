@@ -17,6 +17,41 @@ universe:
   quote_asset: USDT
   min_quote_volume_24h: 5000000
 
+  max_symbols: 40
+  exclude_bases: [USDC, FDUSD, TUSD, USDP, DAI, BUSD, USDE, USD1, PYUSD, AEUR, EUR, EURI, XUSD, RLUSD]
+
+# Skor ağırlıkları (kodda sabit DEĞİL). Başlangıç değerleri ÖNSEL tahmindir, backtest ile (Faz 5) doğrulanacak.
+scoring:
+  trend_weight: 0.25
+  momentum_weight: 0.20
+  volume_weight: 0.15
+  breakout_weight: 0.15
+  volatility_weight: 0.05
+  liquidity_weight: 0.20
+  risk_weight: 0.25          # ceza katsayısı: skor -= risk_weight * risk_score
+  buy_score_threshold: 65
+  max_risk_score: 70
+  min_strategy_votes: 2
+  min_vote_confidence: 0.5
+
+strategy:
+  atr_stop_mult: 2.0
+  rr1: 1.5
+  rr2: 3.0
+  momentum_min_pct: 1.5
+  breakout_lookback: 20
+  volume_breakout_mult: 2.0
+  meanrev_z: -2.0
+  meanrev_rsi: 30
+  squeeze_pctile: 0.2
+
+scanner:
+  interval: 1h
+  kline_limit: 300
+  min_bars: 60
+  book_depth: 20
+  top_n_report: 10
+
 # Aşağıdakiler Faz 4'te kullanılacak; şimdiden config'te (kod içine gömülmez)
 risk:
   max_open_positions: 5

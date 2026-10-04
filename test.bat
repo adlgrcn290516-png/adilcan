@@ -21,6 +21,9 @@ echo ===== BAGLANTI ===== >> "%LOG%"
 echo ===== PAPER DEMO (sanal para) ===== >> "%LOG%"
 ".venv\Scripts\python.exe" main.py paper-demo >> "%LOG%" 2>&1
 
+echo ===== TARAMA (salt okunur) ===== >> "%LOG%"
+".venv\Scripts\python.exe" main.py scan --max-symbols 25 >> "%LOG%" 2>&1
+
 echo [3/3] Bitti.
 echo ==================================================
 echo  Sonuc masaustunde: sonuc.txt  (icindekini bana yapistir)
