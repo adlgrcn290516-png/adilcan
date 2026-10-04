@@ -31,11 +31,24 @@ class Runner:
         self.save_state = save_state or (lambda: None)
         self.scan_every, self.scan_offset, self.manage_every = scan_every_s, scan_offset_s, manage_every_s
         self.max_failures, self._clock, self._sleep = max_failures, clock, sleep
-        self.next_scan = 0.0            # ilk tur hemen tam tarama
+        self._state_file = self.dir / "runner_state.json"
+        self.next_scan = self._load_next_scan()   # kapanıp açılınca/cron'da tarama zamanı KAYBOLMAZ
         self.failures = 0
         self.ticks = 0
         self.last_scan_ts = 0.0
         self.stop_seen = False
+
+    def _load_next_scan(self) -> float:
+        try:
+            return float(json.loads(self._state_file.read_text(encoding="utf-8"))["next_scan"])
+        except Exception:  # noqa: BLE001
+            return 0.0  # ilk çalışma: hemen tam tarama
+
+    def _save_next_scan(self) -> None:
+        try:
+            self._state_file.write_text(json.dumps({"next_scan": self.next_scan}), encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
 
     def _next_scan(self, now: float) -> float:
         return (now // self.scan_every + 1) * self.scan_every + self.scan_offset
@@ -55,6 +68,7 @@ class Runner:
         if now >= self.next_scan:
             rep = self.orch.cycle()
             self.next_scan = self._next_scan(now)
+            self._save_next_scan()
             self.last_scan_ts = now
             kind = "TARAMA"
         else:
@@ -102,4 +116,6 @@ class Runner:
             except Exception as exc:  # noqa: BLE001
                 log.error("durum kaydedilemedi: %s", exc)
             self.heartbeat()
+            if max_ticks is not None and self.ticks >= max_ticks:
+                break  # 'tek tur' (cron) modunda uyumadan çık
             self._sleep(max(1.0, self.manage_every - (self._clock() - t0)))

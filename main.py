@@ -386,6 +386,18 @@ def cmd_run(a, s) -> int:
         meta.write_text(json.dumps({"start_ts": _t.time(), "capital": a.capital, "btc_start": btc, "mode": mode}))
     orch = Orchestrator(ad, MarketScanner(ad, s), mgr, health)
     runner = Runner(orch, mgr, d, save_state=save, manage_every_s=a.manage_every, max_failures=a.max_failures)
+    if a.once:  # cron modu: tek tur yap ve çık; üst üste binen çalıştırmaları kilit dosyası engeller
+        import time as _t
+        lock = d / "run.lock"
+        if lock.exists() and _t.time() - lock.stat().st_mtime < 600:
+            print("Önceki tur hâlâ çalışıyor (kilit dosyası var); bu tur atlandı.")
+            return 0
+        lock.write_text(str(_t.time()))
+        try:
+            runner.run(max_ticks=1)
+        finally:
+            lock.unlink(missing_ok=True)
+        return 0
     print("=" * 70)
     print(f" SÜREKLİ KOŞUCU | {mode}")
     print(f" Veri/kayıt klasörü: {d}   (log: runner.log)")
@@ -522,6 +534,7 @@ def main(argv=None) -> int:
     ru.add_argument("--max-symbols", type=int, default=25)
     ru.add_argument("--max-failures", type=int, default=10)
     ru.add_argument("--max-ticks", type=int, default=0, help="test için tur sınırı (0 = sonsuz)")
+    ru.add_argument("--once", action="store_true", help="CRON modu: tek tur yap ve çık (her dakika çağrılır)")
     ru.add_argument("--fresh", action="store_true", help="eski kayıtları SİL ve sıfırdan başla")
     st_ = sub.add_parser("status", help="ileri test sonuçlarını göster")
     st_.add_argument("--data-dir", default="data/forward")

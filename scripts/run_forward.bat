@@ -9,13 +9,15 @@ echo.
 echo ==================================================================
 echo  SUREKLI KOSUCU (sanal para, canli veri). KAPATMA: Ctrl+C
 echo  Pencereyi acik birak. Cokerse 30 sn sonra kendiliginden yeniden baslar.
-echo  Durum: durum.bat   |   Acil durdur: durdur.bat  (pozisyonlari da kapat: durdur_kapat.bat)
+echo  Durum icin: durum.bat
+echo  Acil durdurmak icin: durdur.bat
+echo  Pozisyonlari da kapatmak icin: durdur_kapat.bat
 echo ==================================================================
 :loop
 ".venv\Scripts\python.exe" main.py --log-level WARNING --debug run --data-dir data\forward
 if %errorlevel%==0 goto done
 echo.
-echo [UYARI] Kosucu beklenmedik sekilde durdu (kod %errorlevel%). 30 sn sonra yeniden basliyor... (Iptal: Ctrl+C)
+echo [UYARI] Kosucu beklenmedik sekilde durdu (kod %errorlevel%). 30 sn sonra yeniden basliyor. Iptal icin Ctrl+C
 timeout /t 30 /nobreak >nul
 goto loop
 :done

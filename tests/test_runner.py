@@ -90,3 +90,18 @@ def test_paper_state_roundtrip_resumes(tmp_path):
     assert pstate.load(PaperBroker({}, {}, None), tmp_path / "yok.json") is False
     o1 = next(iter(fresh.orders.values()))
     assert o1.status == next(iter(broker.orders.values())).status
+
+
+def test_next_scan_persists_and_once_mode_does_not_sleep(tmp_path):
+    r, orch, mgr, ad, sc, clk, saved = mk(tmp_path)
+    t0 = clk.t
+    r.run(max_ticks=1)                                    # tek tur: uyumadan çıkar (cron modu)
+    assert clk.t == t0 and r.next_scan > t0
+    r2 = Runner(orch, mgr, tmp_path, clock=clk, sleep=clk.sleep)   # "yeni süreç": tarama zamanı diskten gelir
+    assert r2.next_scan == r.next_scan
+    calls = []
+    oc, om = orch.cycle, orch.manage_only
+    orch.cycle = lambda *a, **k: (calls.append("scan"), oc(*a, **k))[1]
+    orch.manage_only = lambda: (calls.append("manage"), om())[1]
+    r2.run(max_ticks=1)
+    assert calls == ["manage"]                            # saat dolmadan yeniden TAM tarama yapmaz
