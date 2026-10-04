@@ -151,7 +151,7 @@ def load_settings(config_path: str | Path = "config.yaml", env_file: str | Path 
     raw: dict = {}
     p = Path(config_path)
     if p.exists():
-        raw = yaml.safe_load(p.read_text()) or {}
+        raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     env = os.environ
     if env.get("TRADING_MODE"):
         raw["mode"] = env["TRADING_MODE"].lower()

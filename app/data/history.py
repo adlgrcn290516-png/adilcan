@@ -28,7 +28,7 @@ class HistoryStore:
     def _requested_start(self, symbol: str, interval: str) -> int | None:
         """Bu sembol için daha önce İSTENEN en eski başlangıç (yeni listelenen coinlerde veri daha geç başlar)."""
         try:
-            return int(json.loads(self._meta_path(symbol, interval).read_text())["requested_start"])
+            return int(json.loads(self._meta_path(symbol, interval).read_text(encoding="utf-8"))["requested_start"])
         except Exception:  # noqa: BLE001
             return None
 
@@ -67,7 +67,7 @@ class HistoryStore:
         self.root.mkdir(parents=True, exist_ok=True)
         full.to_csv(self.path(symbol, interval), index=False)
         prev_req = self._requested_start(symbol, interval)
-        self._meta_path(symbol, interval).write_text(json.dumps(
+        self._meta_path(symbol, interval).write_text(encoding="utf-8", data=json.dumps(
             {"requested_start": min(want_start, prev_req) if prev_req is not None and cached is not None else want_start}))
         log.info("%s %s: %d bar (%d yeni parça)", symbol, interval, len(full), len(parts))
         return full

@@ -37,7 +37,7 @@ def _iso(ms: int) -> str:
 
 def save_trades(path: Path, trades: list[M.Trade]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["symbol", "entry_ts", "exit_ts", "entry_price", "exit_price", "qty", "pnl", "pnl_pct", "r", "reasons",
                     "bars_held", "fees"])

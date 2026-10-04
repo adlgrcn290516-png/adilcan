@@ -303,6 +303,11 @@ class _Tee:
 
 
 def main(argv=None) -> int:
+    for st in (sys.stdout, sys.stderr):  # Windows Türkçe konsolda (cp1254) '→' gibi karakterler çökmesin
+        try:
+            st.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            pass
     ap = argparse.ArgumentParser(prog="main.py")
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--log-level", default="INFO")
