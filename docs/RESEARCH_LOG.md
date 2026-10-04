@@ -15,6 +15,9 @@ Notlar
 - #3'te risk motorunun ATR%6 limiti 1 saatlik mumlara göre ayarlıydı ve günlükte sinyallerin %63'ünü reddetti (zaman dilimine ölçeklenmemiş);
   düzeltmek yeni bir deneme olacağından yapılmadı.
 - Her sembol listesi BUGÜNKÜ hacme göre seçildi (hayatta kalma yanlılığı); tutma kıyasları iyimsercedir.
+| 6 | **İLERİ TEST**: AI Composite (1 saatlik) canlı veri + sanal para, 7/24 | gerçek zamanlı, 25 coin | (devam ediyor) — kriter: ≥100 kapanan pozisyon VE getiri>0 VE PF≥1.2 | — |
 
 Sonuç (5 deneme): yön tahmini yapan sistemler elendi; rejim filtresi kriterleri geçmedi. Kanıtlanmış avantaj YOK. Faz 6 (Futures/kaldıraç) yapılmayacak.
 Lecture: eşikler öncül bilgiyle kalibre edilmeli; #5'te MaxDD eşiği (%60) iddialıydı — sonradan gevşetilmedi.
+
+Beklenti (dürüst): #6'da stratejinin backtest'te kaybettiği için kaybetmesini bekliyoruz; ileri test, hiç görülmemiş gerçek zamanlı veride bunu doğrulamak/çürütmek için.

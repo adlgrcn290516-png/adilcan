@@ -1,4 +1,4 @@
-"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run   Faz 5: fetch-history, research, regime-test"""
+"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run   Faz 5: fetch-history, research, regime-test   Faz 9: run, status"""
 from __future__ import annotations
 
 import argparse
@@ -322,6 +322,131 @@ def cmd_regime_test(a, s) -> int:
     return 0
 
 
+def cmd_run(a, s) -> int:
+    """7/24 koşucu. VARSAYILAN: gerçek canlı veri + SANAL para (paper). Gerçek para kilitli."""
+    import logging
+    import shutil
+    from pathlib import Path
+    from app.core.orchestrator import Orchestrator
+    from app.core.runner import Runner
+    from app.core.scanner import MarketScanner
+    from app.data.db import SqliteDb, SqliteOrderRepository, SqlitePortfolioRepository
+    from app.execution.engine import ExecutionEngine
+    from app.paper import state as pstate
+    from app.paper.broker import PaperBroker
+    from app.portfolio.manager import PortfolioManager
+    from app.risk.engine import ApiHealth, RiskEngine
+    from app.utils.logging import RedactFilter
+
+    d = Path(a.data_dir)
+    if a.fresh and d.exists():
+        shutil.rmtree(d)
+    d.mkdir(parents=True, exist_ok=True)
+    fh = logging.FileHandler(d / "runner.log", encoding="utf-8")
+    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(name)s | %(message)s"))
+    fh.addFilter(RedactFilter())
+    logging.getLogger().addHandler(fh)
+    if a.max_symbols:
+        s.universe.max_symbols = a.max_symbols
+    ad = BinanceSpotAdapter(s)
+    info = ad.exchange_info()
+    quote = s.universe.quote_asset
+    state_path = d / "paper_state.json"
+    if a.broker == "paper":
+        broker = PaperBroker({quote: Decimal(str(a.capital))}, info, lambda x: ad.order_book(x, 20))
+        resumed = pstate.load(broker, state_path)
+        save = lambda: pstate.save(broker, state_path)  # noqa: E731
+        mode = f"PAPER (sanal para {a.capital} {quote}; canlı veri)" + (" — kaldığı yerden devam" if resumed else "")
+    else:
+        from app.config import Environment
+        from app.execution.binance_broker import SpotBinanceBroker
+        if s.environment is Environment.PROD or not s.has_credentials:
+            print("[HATA] --broker demo için BINANCE_ENVIRONMENT=demo|testnet ve .env'de demo API key gerekir (PROD kilitli).")
+            return 2
+        broker = SpotBinanceBroker(s, ad)
+        save = lambda: None  # noqa: E731
+        mode = f"BINANCE {s.environment.value.upper()} (demo hesap; gerçek para DEĞİL)"
+    db = SqliteDb(d / "forward.db")
+    health = ApiHealth()
+    risk = RiskEngine(s.risk, health)
+    eng = ExecutionEngine(broker, info, SqliteOrderRepository(db), s)
+    repo = SqlitePortfolioRepository(db)
+    mgr = PortfolioManager(broker, eng, risk, info, s, repo, quote)
+    for issue in mgr.reconcile():
+        print("[UYARI]", issue)
+    meta = d / "forward_meta.json"
+    if not meta.exists():
+        import json
+        import time as _t
+        try:
+            ob = ad.order_book("BTCUSDT", 5)
+            btc = float((ob.bids[0][0] + ob.asks[0][0]) / 2)
+        except Exception:  # noqa: BLE001
+            btc = None
+        meta.write_text(json.dumps({"start_ts": _t.time(), "capital": a.capital, "btc_start": btc, "mode": mode}))
+    orch = Orchestrator(ad, MarketScanner(ad, s), mgr, health)
+    runner = Runner(orch, mgr, d, save_state=save, manage_every_s=a.manage_every, max_failures=a.max_failures)
+    print("=" * 70)
+    print(f" SÜREKLİ KOŞUCU | {mode}")
+    print(f" Veri/kayıt klasörü: {d}   (log: runner.log)")
+    print(" DURDURMAK: bu pencerede Ctrl+C  |  ACİL: '%s' dosyası oluştur (içine CLOSE yazarsan pozisyonlar da kapanır)" % (d / "STOP"))
+    print(" UYARI: stratejiler backtest'te KAYBETTİ; bu çalışma ileri-test (kanıt toplama) amaçlıdır.")
+    print("=" * 70)
+    runner.run(max_ticks=a.max_ticks or None)
+    return 0
+
+
+def cmd_status(a, s) -> int:
+    import json
+    import time as _t
+    from pathlib import Path
+    from app.data.db import SqliteDb, SqlitePortfolioRepository
+    d = Path(a.data_dir)
+    if not (d / "forward.db").exists():
+        print("Henüz çalışma kaydı yok (önce 'run').")
+        return 2
+    db = SqliteDb(d / "forward.db")
+    with db.lock:
+        snaps = db.conn.execute("SELECT ts, equity FROM portfolio_snapshots ORDER BY ts").fetchall()
+        closed = db.conn.execute("SELECT extra FROM positions WHERE status='CLOSED'").fetchall()
+        opened = db.conn.execute("SELECT symbol, entry_price, stop_loss FROM positions WHERE status='OPEN'").fetchall()
+    meta = json.loads((d / "forward_meta.json").read_text()) if (d / "forward_meta.json").exists() else {}
+    if not snaps:
+        print("Henüz anlık görüntü yok.")
+        return 2
+    eq = [float(r["equity"]) for r in snaps]
+    peak, mdd = eq[0], 0.0
+    for e in eq:
+        peak = max(peak, e)
+        mdd = max(mdd, (peak - e) / peak)
+    days = (snaps[-1]["ts"] - snaps[0]["ts"]) / 86400
+    pnls = [float(json.loads(r["extra"] or "{}").get("realized_pnl", 0)) for r in closed]
+    wins, losses = [x for x in pnls if x > 0], [x for x in pnls if x <= 0]
+    pf = (sum(wins) / -sum(losses)) if losses and sum(losses) < 0 else float("inf") if wins else float("nan")
+    ret = eq[-1] / eq[0] - 1
+    print(f"İLERİ TEST DURUMU | {meta.get('mode', '')}")
+    print(f"  Süre: {days:.1f} gün | equity {eq[0]:.2f} → {eq[-1]:.2f} | getiri {ret * 100:+.2f}% | maks. drawdown {mdd * 100:.2f}%")
+    print(f"  Kapanan pozisyon: {len(pnls)} | kazanma oranı {len(wins) / len(pnls) * 100:.0f}% | profit factor {pf:.2f} | "
+          f"ort. PnL {sum(pnls) / len(pnls):+.3f}" if pnls else "  Kapanan pozisyon: 0")
+    print(f"  Açık pozisyon: {len(opened)} " + ", ".join(f"{r['symbol']}" for r in opened))
+    try:
+        ad = BinanceSpotAdapter(s)
+        ob = ad.order_book("BTCUSDT", 5)
+        now = float((ob.bids[0][0] + ob.asks[0][0]) / 2)
+        if meta.get("btc_start"):
+            print(f"  Aynı sürede sadece BTC tutmak: {(now / meta['btc_start'] - 1) * 100:+.2f}%")
+    except Exception:  # noqa: BLE001
+        pass
+    n = len(pnls)
+    print("\n  İLERİ-TEST KARARI (önceden sabit): >=100 kapanan pozisyon VE getiri>0 VE profit factor>=1.2 → 'devam'; aksi halde elenir.")
+    if n < 100:
+        print(f"  Henüz karar için erken: {n}/100 kapanan pozisyon (az örnek = şans olabilir).")
+    else:
+        ok = ret > 0 and pf >= 1.2
+        print("  >>> " + ("KRİTERLER GEÇTİ (yine de gerçek para için ayrı, bilinçli karar gerekir)." if ok else "KALDI — bu sistem için gerçek paraya geçmek için dayanak YOK."))
+    return 0
+
+
 def main(argv=None) -> int:
     for st in (sys.stdout, sys.stderr):  # Windows Türkçe konsolda (cp1254) '→' gibi karakterler çökmesin
         try:
@@ -389,6 +514,17 @@ def main(argv=None) -> int:
     rg.add_argument("--slippage", type=float, default=5.0, help="bps")
     rg.add_argument("--history-dir", default="data/history")
     rg.add_argument("--copy-to", default="")
+    ru = sub.add_parser("run", help="7/24 koşucu (varsayılan: canlı veri + SANAL para)")
+    ru.add_argument("--broker", choices=["paper", "demo"], default="paper")
+    ru.add_argument("--capital", type=float, default=1000.0)
+    ru.add_argument("--data-dir", default="data/forward")
+    ru.add_argument("--manage-every", type=int, default=60, help="pozisyon yönetimi aralığı (sn)")
+    ru.add_argument("--max-symbols", type=int, default=25)
+    ru.add_argument("--max-failures", type=int, default=10)
+    ru.add_argument("--max-ticks", type=int, default=0, help="test için tur sınırı (0 = sonsuz)")
+    ru.add_argument("--fresh", action="store_true", help="eski kayıtları SİL ve sıfırdan başla")
+    st_ = sub.add_parser("status", help="ileri test sonuçlarını göster")
+    st_.add_argument("--data-dir", default="data/forward")
     a = ap.parse_args(argv)
     if getattr(a, "copy_to", ""):
         from pathlib import Path as _P
@@ -399,7 +535,7 @@ def main(argv=None) -> int:
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research, "regime-test": cmd_regime_test}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research, "regime-test": cmd_regime_test, "run": cmd_run, "status": cmd_status}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         if a.debug:

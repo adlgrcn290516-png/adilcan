@@ -40,6 +40,28 @@ class Orchestrator:
                 out[s] = Quote(ob.bids[0][0], ob.asks[0][0])
         return out
 
+    def manage_only(self) -> CycleReport:
+        """Hafif tur (her dakika): yalnızca açık pozisyonları yönet (stop/TP/trailing). Tarama/yeni giriş YOK."""
+        rep = CycleReport()
+        if not self.mgr.positions:
+            self.mgr.snapshot({})
+            self.health.ok()
+            return rep
+        try:
+            quotes = self.quotes_for(set(self.mgr.positions))
+        except RateLimitBanned:
+            self.mgr.set_emergency(True)
+            rep.error = "IP ban (418): yeni emirler durduruldu"
+            return rep
+        except Exception as exc:  # noqa: BLE001
+            self.health.error()
+            rep.error = f"fiyat alınamadı: {exc}"
+            return rep
+        rep.exits = self.mgr.manage(quotes)
+        self.mgr.snapshot(quotes)
+        self.health.ok()
+        return rep
+
     def cycle(self, extra: list[Opportunity] | None = None) -> CycleReport:
         rep = CycleReport()
         try:
