@@ -89,6 +89,24 @@ class RiskCfg(BaseModel):
     max_drawdown_pct: float = 0.15
     max_risk_per_trade_pct: float = 0.01
     emergency_stop: bool = False
+    # --- piyasa koşulu limitleri ---
+    max_spread_pct: float = 0.15            # %
+    min_depth_quote: float = 50_000         # mid ±%1 içindeki bid+ask (quote)
+    max_order_depth_pct: float = 5.0        # emir notional'ı derinliğin en fazla %X'i
+    max_atr_pct: float = 6.0                # aşırı volatilite
+    max_candle_atr: float = 4.0             # son mum aralığı > X*ATR => ani hareket (haber/şok) riski
+    max_correlation: float = 0.85           # açık pozisyonlarla getiri korelasyonu
+    correlation_reduce: float = 0.5         # korelasyon yüksekse boyut çarpanı
+    max_api_errors: int = 5                 # ardışık API hatası -> yeni emir yok
+    min_cash_reserve_pct: float = 0.05
+
+
+class PositionMgmtCfg(BaseModel):
+    breakeven_at_r: float = 1.0            # +1R'de stop -> giriş + tampon
+    breakeven_buffer_pct: float = 0.25     # komisyon+slippage tamponu (%)
+    partial_tp_pct: float = 0.5            # TP1'de pozisyonun bu kadarı satılır
+    trail_start_r: float = 1.5             # +1.5R'den sonra trailing başlar
+    trail_dist_r: float = 1.0              # trailing mesafesi = 1R (ilk risk mesafesi)
 
 
 class Settings(BaseModel):
@@ -101,6 +119,7 @@ class Settings(BaseModel):
     strategy: StrategyCfg = StrategyCfg()
     scanner: ScannerCfg = ScannerCfg()
     risk: RiskCfg = RiskCfg()
+    position: PositionMgmtCfg = PositionMgmtCfg()
     api_key: SecretStr | None = None
     api_secret: SecretStr | None = None
     live_confirm: str = ""

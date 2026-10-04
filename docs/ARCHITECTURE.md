@@ -41,3 +41,22 @@ app/
 3. Secret'lar `SecretStr`, `.env` gitignore'da, loglar imza/anahtar maskeler.
 4. Ürün `trading=YES` değilse `require_trading()` PermissionError verir (Alpha vb.).
 5. 418 ban → API durdurulur (uyuyup denenmez); 429 → `Retry-After`'a uyulur; ağ/5xx → exponential backoff + jitter.
+
+## Faz 4 — Risk & Portföy
+- `risk/engine.py`: strateji-bağımsız karar **APPROVE / REDUCE / REJECT** + tüm nedenlerin listesi. Kontroller: emergency stop,
+  günlük zarar, drawdown (**kilitlenir**, elle sıfırlanır), açık pozisyon sayısı, API sağlığı, zorunlu stop, spread, likidite,
+  volatilite, ani hareket (son mum > X ATR), korelasyon, bakiye+rezerv, toplam maruziyet, minimum emir.
+- Boyut: `qty = equity*risk% / (entry-stop)`, `min(risk_qty, max_position_size)`; sonra maruziyet/bakiye/derinlik/korelasyon ile AZALTILIR.
+- `portfolio/manager.py`: giriş (canlı ask'a taşınan 1R), bakiye FARKINDAN gerçek miktar, stop/BE/kısmi TP/TP2/trailing
+  (stop yalnızca YUKARI), acil durdurma (+opsiyonel hepsini kapat), yeniden başlatmada DB'den yükleme + `reconcile()`.
+- `core/orchestrator.py`: ana döngü; önce mevcut pozisyonlar yönetilir, sonra yeni girişler.
+- Test ile yakalanıp düzeltilen hatalar: (1) kısmi TP1 ve TP2 çıkışları aynı intent kimliğini kullanıp çift sayılıyordu,
+  (2) başarılı fiyat sorgusu API-hata sayacını yanlışlıkla sıfırlıyordu, (3) BE/trailing sonrası stop girişin üstüne çıkınca
+  pozisyon yeniden yüklenemiyordu.
+
+### LIVE ÖN KOŞULLARI (hepsi sağlanmadan canlı YOK)
+1. **Borsa-tarafı stop** (STOP_LOSS_LIMIT / OCO). Şu an stop yazılım stop'u: bot kapalıyken çalışmaz. (Faz 9)
+2. Gerçek komisyon/PnL için `myTrades` ile uzlaştırma (RESULT yanıtı komisyon vermez). (Faz 9)
+3. Paper bakiyesinin kalıcılığı + tek-süreç kilidi. (Faz 9)
+4. Backtest + walk-forward sonuçları ve testnet/demo'da uzun süreli paper çalışma. (Faz 5+)
+5. Senin açık onayın; `safety.REAL_MONEY_ENABLED` elle True yapılır.

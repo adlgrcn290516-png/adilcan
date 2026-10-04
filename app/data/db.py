@@ -53,6 +53,10 @@ class SqliteDb:
         self.lock = threading.Lock()
         with self.lock:
             self.conn.executescript(SCHEMA)
+            # basit migrasyon: eski DB'lerde positions.extra yoksa ekle (Faz 3'te oluşmuş dosyalar bozulmasın)
+            cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(positions)")}
+            if "extra" not in cols:
+                self.conn.execute("ALTER TABLE positions ADD COLUMN extra TEXT")
             self.conn.commit()
 
 
@@ -129,3 +133,80 @@ class SqliteSignalRepository:
     def count(self, table: str = "signals") -> int:
         with self.db.lock:
             return self.db.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+
+
+class SqlitePortfolioRepository:
+    """positions / trades / portfolio_snapshots / risk_events."""
+
+    def __init__(self, db: SqliteDb):
+        self.db = db
+
+    # ---- positions (ek alanlar JSON 'extra' içinde) ----
+    def save_position(self, pos) -> int:
+        import json
+        d = json.dumps(pos.to_dict())
+        with self.db.lock:
+            c = self.db.conn
+            if pos.id is None:
+                cur = c.execute(
+                    "INSERT INTO positions(symbol,market,side,qty,entry_price,stop_loss,take_profit,status,opened_at,closed_at,extra)"
+                    " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (pos.symbol, "SPOT", "LONG", str(pos.qty), str(pos.entry_price), str(pos.stop), str(pos.tp1),
+                     pos.status, pos.opened_at, pos.closed_at, d))
+                pos.id = cur.lastrowid
+            else:
+                c.execute("UPDATE positions SET qty=?,stop_loss=?,take_profit=?,status=?,closed_at=?,extra=? WHERE id=?",
+                          (str(pos.qty), str(pos.stop), str(pos.tp1), pos.status, pos.closed_at, d, pos.id))
+            c.commit()
+        return pos.id
+
+    def open_positions(self) -> list[dict]:
+        import json
+        with self.db.lock:
+            rows = self.db.conn.execute("SELECT id, extra FROM positions WHERE status='OPEN'").fetchall()
+        out = []
+        for r in rows:
+            d = json.loads(r["extra"] or "{}")
+            d["id"] = r["id"]
+            out.append(d)
+        return out
+
+    # ---- trades ----
+    def record_trade(self, ts, symbol, side, qty, price, fee, fee_asset, cid, strategy, pnl) -> None:
+        with self.db.lock:
+            self.db.conn.execute(
+                "INSERT INTO trades(ts,symbol,side,qty,price,fee,fee_asset,client_order_id,strategy,pnl) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (ts, symbol, side, str(qty), str(price), str(fee), fee_asset, cid, strategy, str(pnl)))
+            self.db.conn.commit()
+
+    def trades(self) -> list[sqlite3.Row]:
+        with self.db.lock:
+            return self.db.conn.execute("SELECT * FROM trades ORDER BY ts").fetchall()
+
+    # ---- snapshots ----
+    def record_snapshot(self, ts, equity, cash, exposure, daily_pnl, drawdown) -> None:
+        with self.db.lock:
+            self.db.conn.execute(
+                "INSERT INTO portfolio_snapshots(ts,equity,cash,exposure,daily_pnl,drawdown) VALUES(?,?,?,?,?,?)",
+                (ts, str(equity), str(cash), str(exposure), str(daily_pnl), str(drawdown)))
+            self.db.conn.commit()
+
+    def first_equity_since(self, ts: float) -> Decimal | None:
+        with self.db.lock:
+            r = self.db.conn.execute("SELECT equity FROM portfolio_snapshots WHERE ts>=? ORDER BY ts LIMIT 1", (ts,)).fetchone()
+        return Decimal(r["equity"]) if r else None
+
+    def peak_equity(self) -> Decimal | None:
+        with self.db.lock:
+            rows = self.db.conn.execute("SELECT equity FROM portfolio_snapshots").fetchall()
+        return max((Decimal(r["equity"]) for r in rows), default=None)
+
+    # ---- risk events ----
+    def record_risk_event(self, ts, symbol, decision, reason) -> None:
+        with self.db.lock:
+            self.db.conn.execute("INSERT INTO risk_events(ts,symbol,decision,reason) VALUES(?,?,?,?)", (ts, symbol, decision, reason))
+            self.db.conn.commit()
+
+    def risk_events(self) -> list[sqlite3.Row]:
+        with self.db.lock:
+            return self.db.conn.execute("SELECT * FROM risk_events ORDER BY ts").fetchall()

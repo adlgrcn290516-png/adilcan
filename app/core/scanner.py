@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable
 
+import pandas as pd
+
 from app.config import Settings, UniverseCfg
 from app.core.features import Features, closed_only, compute_features, klines_to_df
 from app.exchange.models import SymbolInfo, Ticker24h
@@ -33,6 +35,7 @@ class Opportunity:
     contributions: list[dict] = field(default_factory=list)
     votes: list[dict] = field(default_factory=list)
     features: dict = field(default_factory=dict)
+    f_obj: Features | None = field(default=None, repr=False, compare=False)
     ts: float = field(default_factory=time.time)
 
     def explain(self) -> str:
@@ -68,6 +71,7 @@ class MarketScanner:
     def __init__(self, adapter: BinanceSpotAdapter, settings: Settings, composite: AIComposite | None = None):
         self.ad, self.s = adapter, settings
         self.composite = composite or AIComposite(settings.strategy, settings.scoring)
+        self.returns: dict[str, pd.Series] = {}   # korelasyon hesabı için son 100 bar getirisi (index=close_time)
 
     def evaluate_symbol(self, sym: str, ticker: Ticker24h | None, now_ms: int) -> Opportunity | None:
         sc = self.s.scanner
@@ -79,6 +83,8 @@ class MarketScanner:
         if f is None:
             log.info("%s: yetersiz kapanmış mum (%d) -> atlandı", sym, len(df))
             return None
+        r = df["close"].pct_change().dropna().tail(100)
+        self.returns[sym] = pd.Series(r.values, index=df["close_time"].iloc[-len(r):].values)
         return self.to_opportunity(f)
 
     def to_opportunity(self, f: Features) -> Opportunity:
@@ -86,7 +92,7 @@ class MarketScanner:
         d = r.details
         return Opportunity(f.symbol, "SPOT", d["score"], r.signal, r.confidence, r.entry_price, r.stop_loss,
                            r.take_profit, r.take_profit_2, r.risk_score, r.reason, d["contributions"], d["votes"],
-                           f.as_dict())
+                           f.as_dict(), f)
 
     def scan(self, progress: Callable[[str], None] | None = None) -> list[Opportunity]:
         info = self.ad.exchange_info()

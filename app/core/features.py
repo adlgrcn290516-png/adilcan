@@ -65,6 +65,7 @@ class Features:
     bb_zscore: float
     bb_width_pctile: float
     squeeze_recent: bool           # son 5 barda bant genişliği alt %X'te miydi
+    last_range_atr: float          # son kapanmış mum (high-low)/ATR  -> ani hareket tespiti
     last_close_time: int
 
     def as_dict(self) -> dict:
@@ -123,4 +124,5 @@ def compute_features(symbol: str, df: pd.DataFrame, ticker: Ticker24h | None, bo
         bb_mid=_f(mid.iloc[i]), bb_upper=_f(up.iloc[i]), bb_lower=_f(lo.iloc[i]), bb_zscore=float(bz),
         bb_width_pctile=_f(wp.iloc[i]),
         squeeze_recent=bool((wp.iloc[max(0, i - 5):i] <= squeeze_pctile).any()),
+        last_range_atr=float((h.iloc[i] - l.iloc[i]) / atr_v) if atr_v else float("nan"),
         last_close_time=int(df["close_time"].iloc[i]))

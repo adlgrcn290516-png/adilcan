@@ -1,4 +1,4 @@
-"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan"""
+"""BINANCE AI TRADING SYSTEM — CLI.   Faz 1: check | capabilities   Faz 2: paper-demo   Faz 3: scan   Faz 4: paper-run"""
 from __future__ import annotations
 
 import argparse
@@ -138,6 +138,83 @@ def cmd_scan(a, s) -> int:
     return 0
 
 
+def cmd_paper_run(a, s) -> int:
+    """Tam zincir, SANAL parayla: tara -> risk -> portföy -> (paper) emir -> doğrula -> yönet. Gerçek emir YOK."""
+    import os
+    import time as _t
+    from app.core.orchestrator import Orchestrator
+    from app.core.scanner import MarketScanner, Opportunity
+    from app.data.db import SqliteDb, SqliteOrderRepository, SqlitePortfolioRepository
+    from app.execution.engine import ExecutionEngine
+    from app.paper.broker import PaperBroker
+    from app.portfolio.manager import PortfolioManager
+    from app.risk.engine import ApiHealth, RiskEngine
+    from app.strategies.base import Signal
+
+    if not a.resume and os.path.exists(a.db):
+        os.remove(a.db)  # paper bakiyesi bellekte tutulur; temiz başla
+    ad = BinanceSpotAdapter(s)
+    info = ad.exchange_info()
+    broker = PaperBroker({s.universe.quote_asset: Decimal(str(a.capital))}, info, lambda x: ad.order_book(x, 20))
+    db = SqliteDb(a.db)
+    health = ApiHealth()
+    risk = RiskEngine(s.risk, health)
+    eng = ExecutionEngine(broker, info, SqliteOrderRepository(db), s)
+    repo = SqlitePortfolioRepository(db)
+    mgr = PortfolioManager(broker, eng, risk, info, s, repo, s.universe.quote_asset)
+    if a.emergency:
+        mgr.set_emergency(True)
+    if a.max_symbols:
+        s.universe.max_symbols = a.max_symbols
+    orch = Orchestrator(ad, MarketScanner(ad, s), mgr, health, dry_run=a.dry_run)
+    print(f"PAPER-RUN | sanal sermaye {a.capital} {s.universe.quote_asset} | tur sayısı {a.cycles} | dry-run={a.dry_run} | "
+          f"emergency_stop={risk.emergency_stop}\n")
+    for n in range(1, a.cycles + 1):
+        extra = []
+        if a.force_buy and n == 1:
+            sym = a.force_buy.upper()
+            o = orch.scanner.evaluate_symbol(sym, None, ad.server_time_ms())
+            if o is None:
+                print(f"[HATA] {sym} için veri yetersiz")
+                return 2
+            f = o.f_obj
+            stop = f.price - s.strategy.atr_stop_mult * f.atr
+            risk_d = f.price - stop
+            o.signal, o.confidence, o.entry, o.stop = Signal.BUY, 0.5, f.price, stop
+            o.tp1, o.tp2 = f.price + s.strategy.rr1 * risk_d, f.price + s.strategy.rr2 * risk_d
+            o.reason = "MANUEL DEMO SİNYALİ (strateji değil) — yalnızca risk/portföy zincirini göstermek için"
+            extra = [o]
+            print(f"[DEMO] {sym} için MANUEL BUY sinyali üretildi (stratejiden gelmedi).")
+        print(f"--- TUR {n}/{a.cycles} ---")
+        rep = orch.cycle(extra)
+        if rep.error:
+            print(f"  UYARI: {rep.error}")
+        buys = [o for o in rep.opportunities if o.signal is Signal.BUY]
+        print(f"  taranan: {len(rep.opportunities)} | BUY sinyali: {len(buys)} | açılan pozisyon: {len(rep.opened)}")
+        for r in rep.opened:
+            p = r.position
+            print(f"  AÇILDI {p.symbol}: qty={p.qty} giriş={p.entry_price:.6g} stop={p.stop:.6g} TP1={p.tp1:.6g} "
+                  f"TP2={p.tp2:.6g} | risk kararı: {r.verdict.decision.value} ({'; '.join(r.verdict.reasons) or 'tüm kontroller geçti'})")
+        for sym, why in rep.skipped:
+            print(f"  ATLANDI {sym}: {why}")
+        for e in rep.exits:
+            print(f"  ÇIKIŞ {e.symbol} {e.reason}: qty={e.qty} fiyat={e.price} pnl={e.pnl:.4f}")
+        if n < a.cycles:
+            _t.sleep(a.sleep)
+    q = orch.quotes_for(set(mgr.positions))
+    st = mgr.state(q)
+    rs = risk.status(st)
+    print(f"\nPORTFÖY: equity={st.equity:.4f} nakit={st.free_quote:.4f} maruziyet={st.exposure:.4f} "
+          f"günlük={rs['daily_pnl_pct'] * 100:.2f}% drawdown={rs['drawdown_pct'] * 100:.2f}% açık={len(st.positions)}")
+    for p in st.positions:
+        print(f"  {p.symbol}: qty={p.qty} giriş={p.entry_price:.6g} stop={p.stop:.6g} TP1={p.tp1:.6g}")
+    print(f"RİSK: {rs}")
+    ev = repo.risk_events()
+    print(f"Risk olayı kaydı: {len(ev)} (örnek: {[(e['symbol'], e['decision']) for e in ev[:5]]})")
+    print(f"Kayıt: {a.db}. Not: gerçek para/emir YOK; stop'lar yazılım stop'u (borsada stop emri yok).")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="main.py")
     ap.add_argument("--config", default="config.yaml")
@@ -156,11 +233,21 @@ def main(argv=None) -> int:
     sc.add_argument("--interval", default="")
     sc.add_argument("--max-symbols", type=int, default=0)
     sc.add_argument("--db", default="data/trading.db")
+    pr = sub.add_parser("paper-run", help="Sanal parayla tam zincir (tara->risk->portföy->emir->yönet)")
+    pr.add_argument("--cycles", type=int, default=1)
+    pr.add_argument("--sleep", type=float, default=60.0, help="turlar arası saniye")
+    pr.add_argument("--capital", type=float, default=1000.0)
+    pr.add_argument("--max-symbols", type=int, default=25)
+    pr.add_argument("--db", default="data/paper_run.db")
+    pr.add_argument("--dry-run", action="store_true", help="emir gönderme, yalnızca risk kararlarını göster")
+    pr.add_argument("--resume", action="store_true", help="DB'yi silme (paper bakiyesi bellekte olduğundan önerilmez)")
+    pr.add_argument("--emergency", action="store_true", help="EMERGENCY_STOP açık başla (yeni emir yok)")
+    pr.add_argument("--force-buy", default="", help="DEMO: bu sembole manuel BUY sinyali enjekte et")
     a = ap.parse_args(argv)
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2

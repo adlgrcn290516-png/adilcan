@@ -19,6 +19,11 @@ echo ===== PAPER DEMO (sanal para) ===== >> "%LOG%"
 echo ===== TARAMA (salt okunur) ===== >> "%LOG%"
 ".venv\Scripts\python.exe" main.py scan --max-symbols 25 >> "%LOG%" 2>&1
 
+echo ===== PAPER-RUN: tam zincir, sanal para (BTC icin MANUEL demo sinyali) ===== >> "%LOG%"
+".venv\Scripts\python.exe" main.py paper-run --max-symbols 25 --cycles 1 --force-buy BTCUSDT >> "%LOG%" 2>&1
+echo ===== PAPER-RUN: EMERGENCY_STOP acik (yeni emir OLMAMALI) ===== >> "%LOG%"
+".venv\Scripts\python.exe" main.py paper-run --max-symbols 10 --cycles 1 --force-buy BTCUSDT --emergency >> "%LOG%" 2>&1
+
 echo [3/3] Bitti.
 echo ==================================================
 echo  Sonuc masaustunde: sonuc.txt  (icindekini bana yapistir)
