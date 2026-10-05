@@ -228,6 +228,7 @@ def test_breakeven_partial_tp1_tp2_flow_and_pnl():
     assert p.realized_pnl > 0 and e.broker.free_balance("USDT") > D("10000")
     assert e.broker.free_balance("BTC") < SYM.min_qty          # REGRESYON: iki çıkış da gerçekten satıldı (çift sayım yok)
     assert [t["side"] for t in e.repo.trades()] == ["BUY", "SELL", "SELL"]
+    assert [t["strategy"].split("|")[-1] for t in e.repo.trades()][1:] == ["TP1_PARTIAL", "TP2"]   # çıkış nedeni kayıtlı
     assert e.repo.open_positions() == []
 
 

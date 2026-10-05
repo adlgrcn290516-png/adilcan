@@ -345,7 +345,12 @@ def cmd_run(a, s) -> int:
     fh = logging.FileHandler(d / "runner.log", encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(name)s | %(message)s"))
     fh.addFilter(RedactFilter())
-    logging.getLogger().addHandler(fh)
+    fh.setLevel(logging.INFO)
+    root = logging.getLogger()
+    for h in root.handlers:           # konsol: kullanıcının seçtiği seviyede KALIR (sessiz)
+        h.setLevel(root.level)
+    root.setLevel(logging.INFO)       # dosya: açılış/kapanış/tarama bilgileri de yazılır
+    root.addHandler(fh)
     if a.max_symbols:
         s.universe.max_symbols = a.max_symbols
     ad = BinanceSpotAdapter(s)
@@ -441,6 +446,14 @@ def cmd_status(a, s) -> int:
     print(f"  Kapanan pozisyon: {len(pnls)} | kazanma oranı {len(wins) / len(pnls) * 100:.0f}% | profit factor {pf:.2f} | "
           f"ort. PnL {sum(pnls) / len(pnls):+.3f}" if pnls else "  Kapanan pozisyon: 0")
     print(f"  Açık pozisyon: {len(opened)} " + ", ".join(f"{r['symbol']}" for r in opened))
+    with db.lock:
+        tr = db.conn.execute("SELECT ts, symbol, side, qty, price, pnl, strategy FROM trades ORDER BY ts DESC LIMIT 12").fetchall()
+    if tr:
+        print("\n  SON İŞLEMLER (UTC):")
+        for r in reversed(tr):
+            why = r["strategy"].split("|")[1] if "|" in (r["strategy"] or "") else ""
+            pnl = f"pnl {float(r['pnl']):+.3f}" if r["side"] == "SELL" else ""
+            print(f"    {_t.strftime('%m-%d %H:%M', _t.gmtime(r['ts']))}  {r['side']:<4} {r['symbol']:<10} fiyat {float(r['price']):<12.6g} {pnl:<14} {why}")
     try:
         ad = BinanceSpotAdapter(s)
         ob = ad.order_book("BTCUSDT", 5)

@@ -231,7 +231,7 @@ class PortfolioManager:
         p.cost_quote -= cost_part
         p.realized_pnl += pnl
         self.repo.record_trade(self._clock(), p.symbol, "SELL", st.executed_qty, st.avg_price, st.fee_amount,
-                               st.fee_asset, st.client_order_id, p.strategy, pnl)
+                               st.fee_asset, st.client_order_id, f"{p.strategy}|{reason}", pnl)
         return self._finalize(p, st.executed_qty, st.avg_price, pnl, reason, st)
 
     def _finalize(self, p: Position, qty: Decimal, price: Decimal | None, pnl: Decimal, reason: str,
