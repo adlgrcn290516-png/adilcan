@@ -255,7 +255,9 @@ class FakeClient:
         self.rest_api = FakeRest()
 
 
-def test_binance_broker_locked_on_prod():
+def test_binance_broker_locked_on_prod(monkeypatch):
+    from app.execution import safety
+    monkeypatch.setattr(safety, "REAL_MONEY_ENABLED", False)  # kilit kapalıyken PROD emri engellenir
     s = Settings(api_key="k", api_secret="s")  # environment=prod
     with pytest.raises(RealMoneyLocked):
         SpotBinanceBroker(s, BinanceSpotAdapter(s, client=FakeClient()))
