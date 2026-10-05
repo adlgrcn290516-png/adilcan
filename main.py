@@ -357,11 +357,28 @@ def cmd_run(a, s) -> int:
     info = ad.exchange_info()
     quote = s.universe.quote_asset
     state_path = d / "paper_state.json"
+    live_cap = None
     if a.broker == "paper":
         broker = PaperBroker({quote: Decimal(str(a.capital))}, info, lambda x: ad.order_book(x, 20))
         resumed = pstate.load(broker, state_path)
         save = lambda: pstate.save(broker, state_path)  # noqa: E731
         mode = f"PAPER (sanal para {a.capital} {quote}; canlı veri)" + (" — kaldığı yerden devam" if resumed else "")
+    elif a.broker == "live":
+        from app.execution.binance_broker import SpotBinanceBroker
+        if not s.live_armed:
+            print("[HATA] Canlı mod kapalı: TRADING_MODE=live ve LIVE_TRADING_CONFIRM gerekir (gercek_baslat.bat bunu yapar).")
+            return 2
+        broker = SpotBinanceBroker(s, ad)   # app/execution/safety.py kilidi kapalıysa RealMoneyLocked fırlatır
+        free = broker.free_balance(quote)
+        if free > Decimal(str(a.capital)) * Decimal("1.5"):
+            print(f"[HATA] Hesapta {free} {quote} var, bütçe {a.capital}. Fazlasını başka yere taşı (güvenlik).")
+            return 2
+        # Küçük hesap: min emir (~5 USDT) için pozisyon oranları büyütülür; toplam kayıp sigortası ayrıca devrede
+        s.risk.max_open_positions, s.risk.max_position_size_pct = 2, 0.50
+        s.risk.max_total_exposure_pct, s.risk.max_risk_per_trade_pct = 0.90, 0.03
+        live_cap = Decimal(str(a.max_loss))
+        save = lambda: None  # noqa: E731
+        mode = f"*** GERÇEK PARA *** BINANCE PROD (bütçe {a.capital} {quote}, azami kayıp {a.max_loss}, serbest {free})"
     else:
         from app.config import Environment
         from app.execution.binance_broker import SpotBinanceBroker
@@ -390,7 +407,12 @@ def cmd_run(a, s) -> int:
             btc = None
         meta.write_text(json.dumps({"start_ts": _t.time(), "capital": a.capital, "btc_start": btc, "mode": mode}))
     orch = Orchestrator(ad, MarketScanner(ad, s), mgr, health)
-    runner = Runner(orch, mgr, d, save_state=save, manage_every_s=a.manage_every, max_failures=a.max_failures)
+    guard = None
+    if live_cap is not None:
+        from app.live import LiveGuard
+        guard = LiveGuard(mgr, orch, d / "live_guard.json", live_cap)
+    runner = Runner(orch, mgr, d, save_state=save, manage_every_s=a.manage_every, max_failures=a.max_failures,
+                    guard=guard)
     if a.once:  # cron modu: tek tur yap ve çık; üst üste binen çalıştırmaları kilit dosyası engeller
         import time as _t
         lock = d / "run.lock"
@@ -408,8 +430,37 @@ def cmd_run(a, s) -> int:
     print(f" Veri/kayıt klasörü: {d}   (log: runner.log)")
     print(" DURDURMAK: bu pencerede Ctrl+C  |  ACİL: '%s' dosyası oluştur (içine CLOSE yazarsan pozisyonlar da kapanır)" % (d / "STOP"))
     print(" UYARI: stratejiler backtest'te KAYBETTİ; bu çalışma ileri-test (kanıt toplama) amaçlıdır.")
+    if a.broker == "live":
+        print(" GERÇEK PARA: borsa tarafında stop emri YOK; stop bu programca izlenir. Bilgisayar açık ve internet bağlı kalmalı.")
     print("=" * 70)
     runner.run(max_ticks=a.max_ticks or None)
+    return 0
+
+
+def cmd_live_test(a, s) -> int:
+    """GERÇEK para: tek küçük AL + SAT (uçtan uca emir yolu testi). Maliyet birkaç sent."""
+    from pathlib import Path
+    from app.data.db import SqliteDb, SqliteOrderRepository
+    from app.execution.binance_broker import SpotBinanceBroker
+    from app.execution.engine import ExecutionEngine
+    from app.live import smoke_test
+    if not s.live_armed:
+        print("[HATA] Canlı mod kapalı (TRADING_MODE=live + onay cümlesi gerekir).")
+        return 2
+    d = Path(a.data_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    ad = BinanceSpotAdapter(s)
+    info = ad.exchange_info()
+    broker = SpotBinanceBroker(s, ad)
+    eng = ExecutionEngine(broker, info, SqliteOrderRepository(SqliteDb(d / "livetest.db")), s)
+    r = smoke_test(eng, broker, ad, info, a.symbol)
+    b, sl = r["buy"], r["sell"]
+    print(f"AL : durum={b.status.value} doğrulandı={b.verified} miktar={b.executed_qty} ort.fiyat={b.avg_price} komisyon={b.fee_amount} {b.fee_asset}")
+    if sl is None:
+        print("SAT: yapılmadı (alım dolmadı). Hesabını Binance'te kontrol et.")
+        return 1
+    print(f"SAT: durum={sl.status.value} doğrulandı={sl.verified} miktar={sl.executed_qty} ort.fiyat={sl.avg_price} komisyon={sl.fee_amount} {sl.fee_asset}")
+    print(f"USDT önce={r['usdt_before']}  sonra={r['usdt_after']}  fark={r['usdt_after'] - r['usdt_before']}  (kalan {a.symbol[:-4]} tozu: {r['base_left']})")
     return 0
 
 
@@ -540,7 +591,8 @@ def main(argv=None) -> int:
     rg.add_argument("--history-dir", default="data/history")
     rg.add_argument("--copy-to", default="")
     ru = sub.add_parser("run", help="7/24 koşucu (varsayılan: canlı veri + SANAL para)")
-    ru.add_argument("--broker", choices=["paper", "demo"], default="paper")
+    ru.add_argument("--broker", choices=["paper", "demo", "live"], default="paper")
+    ru.add_argument("--max-loss", type=float, default=5.0, help="live: bu kadar kayıpta otomatik acil durdurma (quote)")
     ru.add_argument("--capital", type=float, default=1000.0)
     ru.add_argument("--data-dir", default="data/forward")
     ru.add_argument("--manage-every", type=int, default=60, help="pozisyon yönetimi aralığı (sn)")
@@ -549,6 +601,9 @@ def main(argv=None) -> int:
     ru.add_argument("--max-ticks", type=int, default=0, help="test için tur sınırı (0 = sonsuz)")
     ru.add_argument("--once", action="store_true", help="CRON modu: tek tur yap ve çık (her dakika çağrılır)")
     ru.add_argument("--fresh", action="store_true", help="eski kayıtları SİL ve sıfırdan başla")
+    lt = sub.add_parser("live-test", help="GERÇEK PARA: tek küçük AL+SAT testi (kilitler gerekir)")
+    lt.add_argument("--symbol", default="BTCUSDT")
+    lt.add_argument("--data-dir", default="data/live")
     st_ = sub.add_parser("status", help="ileri test sonuçlarını göster")
     st_.add_argument("--data-dir", default="data/forward")
     a = ap.parse_args(argv)
@@ -561,7 +616,7 @@ def main(argv=None) -> int:
     setup_logging(a.log_level)
     s = load_settings(a.config)
     try:
-        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research, "regime-test": cmd_regime_test, "run": cmd_run, "status": cmd_status}[a.cmd](a, s)
+        return {"check": cmd_check, "capabilities": cmd_capabilities, "paper-demo": cmd_paper_demo, "scan": cmd_scan, "paper-run": cmd_paper_run, "fetch-history": cmd_fetch_history, "research": cmd_research, "regime-test": cmd_regime_test, "run": cmd_run, "live-test": cmd_live_test, "status": cmd_status}[a.cmd](a, s)
     except Exception as exc:  # noqa: BLE001 — CLI temiz hata verir, çökmez
         print(f"[HATA] {type(exc).__name__}: {exc}", file=sys.stderr)
         if a.debug:

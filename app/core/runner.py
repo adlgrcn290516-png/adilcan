@@ -24,7 +24,7 @@ class Runner:
     def __init__(self, orch: Orchestrator, mgr: PortfolioManager, data_dir: str | Path, *,
                  save_state: Callable[[], None] | None = None, scan_every_s: int = 3600, scan_offset_s: int = 15,
                  manage_every_s: int = 60, max_failures: int = 10, clock: Callable[[], float] = time.time,
-                 sleep: Callable[[float], None] = time.sleep):
+                 sleep: Callable[[float], None] = time.sleep, guard: Callable[[], None] | None = None):
         self.orch, self.mgr = orch, mgr
         self.dir = Path(data_dir)
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -37,6 +37,7 @@ class Runner:
         self.ticks = 0
         self.last_scan_ts = 0.0
         self.stop_seen = False
+        self.guard = guard   # canlı para: toplam kayıp sigortası (her tur)
 
     def _load_next_scan(self) -> float:
         try:
@@ -75,6 +76,11 @@ class Runner:
             rep = self.orch.manage_only()
             kind = "yönetim"
         self.ticks += 1
+        if self.guard:
+            try:
+                self.guard()
+            except Exception as exc:  # noqa: BLE001 — sigorta hatası koşucuyu çökertmesin ama görünür olsun
+                log.error("sigorta (guard) hatası: %s: %s", type(exc).__name__, exc)
         if rep.error:
             log.warning("[%s] %s", kind, rep.error)
         for r in rep.opened:
