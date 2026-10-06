@@ -373,9 +373,10 @@ def cmd_run(a, s) -> int:
         if free > Decimal(str(a.capital)) * Decimal("1.5"):
             print(f"[HATA] Hesapta {free} {quote} var, bütçe {a.capital}. Fazlasını başka yere taşı (güvenlik).")
             return 2
-        # Küçük hesap: min emir (~5 USDT) için pozisyon oranları büyütülür; toplam kayıp sigortası ayrıca devrede
-        s.risk.max_open_positions, s.risk.max_position_size_pct = 2, 0.50
-        s.risk.max_total_exposure_pct, s.risk.max_risk_per_trade_pct = 0.90, 0.03
+        # Küçük hesap (~19 USDT): TEK pozisyon, bütçenin neredeyse tamamı; toplam kayıp sigortası ayrıca devrede.
+        # İşlem başı risk %5: tek bir stop ≈ bütçenin %5'i (~0.9 USDT). Günlük kayıp limiti (%3) o gün yeni girişi keser.
+        s.risk.max_open_positions, s.risk.max_position_size_pct = 1, 0.95
+        s.risk.max_total_exposure_pct, s.risk.max_risk_per_trade_pct = 0.95, 0.05
         live_cap = Decimal(str(a.max_loss))
         save = lambda: None  # noqa: E731
         mode = f"*** GERÇEK PARA *** BINANCE PROD (bütçe {a.capital} {quote}, azami kayıp {a.max_loss}, serbest {free})"
