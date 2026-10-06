@@ -273,7 +273,12 @@ def cmd_research(a, s) -> int:
         print("[HATA] yeterli veri yok")
         return 2
     t_start = _t.time()
-    text = run_research(data, s, cfg, opts, infos, Path(a.report_dir))
+    if a.family == "sr":
+        from app.backtest.sr_research import run_sr_research
+        text = run_sr_research(data, s, cfg, infos, Path(a.report_dir), holdout_frac=a.holdout,
+                               n_runs=8 if a.quick else 20)
+    else:
+        text = run_research(data, s, cfg, opts, infos, Path(a.report_dir))
     print(text)
     print(f"\n[Toplam süre: {(_t.time() - t_start) / 60:.1f} dk] [RAPOR TAMAMLANDI]")
     print(f"\nRapor ve işlem listeleri: {a.report_dir}/")
@@ -584,6 +589,7 @@ def main(argv=None) -> int:
     rs.add_argument("--skip-control", action="store_true", help="rastgele-giriş kontrolünü atla")
     rs.add_argument("--quick", action="store_true", help="küçük ızgara")
     rs.add_argument("--synthetic", type=int, default=0, help="çevrimdışı demo: N sentetik sembol")
+    rs.add_argument("--family", choices=["composite", "sr"], default="composite", help="sr: Fib+destek+MACD/RSI (araştırma #7)")
     rg = sub.add_parser("regime-test", help="BTC/ETH SMA200 rejim filtresi testi (tek kural)")
     rg.add_argument("--days", type=int, default=3500)
     rg.add_argument("--n", type=int, default=200)

@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 import numpy as np
 import pandas as pd
 
+from app.core.swings import swing_levels
 from app.data import indicators as ind
 from app.exchange.models import Kline, OrderBook, Ticker24h
 
@@ -67,6 +68,11 @@ class Features:
     squeeze_recent: bool           # son 5 barda bant genişliği alt %X'te miydi
     last_range_atr: float          # son kapanmış mum (high-low)/ATR  -> ani hareket tespiti
     last_close_time: int
+    # nedensel swing yapısı (core/swings.py); NaN = yok
+    fib_lo: float = float("nan")        # son yükseliş bacağının dibi
+    fib_hi: float = float("nan")        # son yükseliş bacağının tepesi
+    pivot_support: float = float("nan")  # son onaylı swing dibi
+    pivot_resistance: float = float("nan")  # son onaylı swing tepesi
 
     def as_dict(self) -> dict:
         return {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in asdict(self).items()}
@@ -95,7 +101,9 @@ def prepare(df: pd.DataFrame, *, breakout_lookback: int = 20, squeeze_pctile: fl
     ret = c.pct_change()
     sq = (wp <= squeeze_pctile).astype(float).shift(1).rolling(5, min_periods=1).sum() > 0
     arr = lambda s_: s_.to_numpy(dtype=float)  # noqa: E731
+    fl, fh, ps, pr = swing_levels(arr(h), arr(l), arr(c))
     a = {
+        "fib_lo": fl, "fib_hi": fh, "piv_sup": ps, "piv_res": pr,
         "c": arr(c), "h": arr(h), "l": arr(l), "v": arr(v), "qv": arr(df["quote_volume"]),
         "tbq": arr(df["taker_buy_quote"]), "ct": df["close_time"].to_numpy(),
         "macd": arr(macd_l), "macd_s": arr(macd_s), "macd_h": arr(macd_h), "atr": arr(ind.atr(h, l, c)),
@@ -152,7 +160,9 @@ def features_at(p: Prepared, i: int, symbol: str, ticker: Ticker24h | None = Non
         bb_mid=float(mid_), bb_upper=float(up_), bb_lower=float(a["lo"][i]), bb_zscore=float(bz),
         bb_width_pctile=float(a["wp"][i]), squeeze_recent=bool(a["sq"][i]),
         last_range_atr=float((a["h"][i] - a["l"][i]) / atr_v) if atr_v else nan,
-        last_close_time=int(a["ct"][i]))
+        last_close_time=int(a["ct"][i]),
+        fib_lo=float(a["fib_lo"][i]), fib_hi=float(a["fib_hi"][i]),
+        pivot_support=float(a["piv_sup"][i]), pivot_resistance=float(a["piv_res"][i]))
 
 
 def compute_features(symbol: str, df: pd.DataFrame, ticker: Ticker24h | None, book: OrderBook | None,

@@ -21,3 +21,7 @@ Sonuç (5 deneme): yön tahmini yapan sistemler elendi; rejim filtresi kriterler
 Lecture: eşikler öncül bilgiyle kalibre edilmeli; #5'te MaxDD eşiği (%60) iddialıydı — sonradan gevşetilmedi.
 
 Beklenti (dürüst): #6'da stratejinin backtest'te kaybettiği için kaybetmesini bekliyoruz; ileri test, hiç görülmemiş gerçek zamanlı veride bunu doğrulamak/çürütmek için.
+
+| 7 | **Fibonacci geri çekilme + destek + MACD/RSI** (long-only, tek strateji, ayar YOK): EMA50>EMA200 ve eğim>0; bacak >=3 ATR; fiyat %38.2-%61.8 bölgesinde; MACD hist artıyor ve RSI 30-55; stop = swing dibi - 0.25 ATR; hedefler rr1/rr2 | 15 coin, 1 saatlik, 4 yıl (holdout son %20) | (bekleniyor) — kriterler (sabit): holdout öncesi getiri>0 ve PF>=1.2; işlem>=100; işlem başı beklenti rastgeleden >=+0.30 puan iyi; holdout getiri>0, PF>=1.1, işlem>=20 | — |
+
+Not (#7): MACD, RSI, EMA ve 48 bar destek/direnç AI Composite içinde zaten vardı; Fibonacci yoktu. Yeni olan: nedensel swing/pivot yapısı (core/swings.py, 5 bar onay gecikmeli) + Fib bölgesi. Bu strateji AI Composite'e OY VERMEZ (canlı/sanal robotlar etkilenmez), bağımsız araştırılır.

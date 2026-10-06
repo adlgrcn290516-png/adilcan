@@ -67,8 +67,9 @@ def with_params(s: Settings, params: Mapping[str, object]) -> Settings:
 class SignalCache:
     """Özellik ve strateji çıktılarını (sembol, bar) başına BİR kez hesaplar; parametre varyantları yeniden kullanır."""
 
-    def __init__(self, data: dict[str, pd.DataFrame], settings: Settings):
+    def __init__(self, data: dict[str, pd.DataFrame], settings: Settings, extra=None):
         self.data, self.s = data, settings
+        self.extra = list(extra or [])   # AI Composite'e OY VERMEZ; yalnızca bağımsız (solo) araştırma için
         iv = INTERVAL_MS[settings.scanner.interval]
         self.bars_per_day = max(1, 86_400_000 // iv)
         self.prep = {sym: prepare(df, breakout_lookback=settings.strategy.breakout_lookback,
@@ -99,6 +100,8 @@ class SignalCache:
             for st in self.strats:
                 r = st.evaluate(f)
                 o[st.name] = r if r.signal is not Signal.HOLD else self._hold[st.name]
+            for st in self.extra:
+                o[st.name] = st.evaluate(f)
             self._o[k] = o
         return o
 
