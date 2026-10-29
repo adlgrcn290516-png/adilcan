@@ -1840,6 +1840,14 @@ html{scroll-padding-top:96px}
 .fl-home .rq-e{display:block;margin-top:4px;font-size:12px;font-weight:600;color:var(--red)}
 .fl-home .rq-row{margin-bottom:8px;padding:10px 12px 12px;background:#fff;border:1px solid var(--line);border-radius:12px;transition:border-color .3s,box-shadow .3s}
 .fl-home .rq-row.is-new{border-color:var(--blue-line);box-shadow:0 0 0 3px rgba(42,85,133,.12)}
+/* Seçilen ürünün teknik özellikleri (kalemin alt satırı) */
+.fl-home .rq-spec{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;padding:9px 12px;border:1px dashed var(--blue-line);border-radius:10px;background:var(--blue-soft)}
+.fl-home .rq-spec div{display:flex;align-items:baseline;gap:7px;min-width:0}
+.fl-home .rq-spec dt{font:700 10.5px/1.3 var(--ff-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+.fl-home .rq-spec dd{margin:0;font:700 12.5px/1.4 var(--ff-mono);color:var(--ink);overflow-wrap:anywhere}
+.fl-home .rq-spec .rq-spec__wide{flex:1 1 100%}
+.fl-home .rq-spec .rq-spec__wide dd{font-family:var(--ff);font-weight:600;color:var(--ink-2)}
+@media (max-width:575.98px){.fl-home .rq-spec{flex-direction:column;gap:5px}.fl-home .rq-spec div{justify-content:space-between}}
 .fl-home .rq-row__head{display:flex;align-items:center;gap:12px;margin-bottom:8px;min-height:24px}
 .fl-home .rq-row__no{flex:0 0 auto;font:700 11px/1 var(--ff-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
 .fl-home .rq-row__hint{flex:1 1 auto;min-width:0;margin:0;font-size:12px;line-height:1.4;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2129,14 +2137,24 @@ html{scroll-padding-top:96px}
 
 {{-- ══ TEKLİF TALEBİ — ölçü kalemleri + iletişim; e-posta sunucudan gider (POST /teklif-iste) ══ --}}
 @php
+    /* 'row' → $specRows indeksi: seçilen ürünün teknik özellikleri kalemin altında bu tablodan gösterilir */
     $rqProducts = [
-        ['ad' => 'Sert Krom Kaplı Mil',             'tip' => 'mil'],
-        ['ad' => 'CK45 İndüksiyonlu Krom Kaplı Mil', 'tip' => 'mil'],
-        ['ad' => 'CF53 İndüksiyonlu Kromlu Mil',    'tip' => 'mil'],
-        ['ad' => 'Honlanmış Boru (H8)',             'tip' => 'boru'],
-        ['ad' => 'Krom Kaplı Rod Boru',             'tip' => 'boru'],
-        ['ad' => 'Diğer / özel ürün',               'tip' => 'ozel'],
+        ['ad' => 'Sert Krom Kaplı Mil',             'tip' => 'mil',  'row' => 0],
+        ['ad' => 'CK45 İndüksiyonlu Krom Kaplı Mil', 'tip' => 'mil',  'row' => 1],
+        ['ad' => 'CF53 İndüksiyonlu Kromlu Mil',    'tip' => 'mil',  'row' => 2],
+        ['ad' => 'Honlanmış Boru (H8)',             'tip' => 'boru', 'row' => 3],
+        ['ad' => 'Krom Kaplı Rod Boru',             'tip' => 'boru', 'row' => 4],
+        ['ad' => 'Diğer / özel ürün',               'tip' => 'ozel', 'row' => null],
     ];
+    $rqSpecFor = function ($ri) use ($specRows) {
+        if ($ri === null || !isset($specRows[$ri])) return [];
+        $r = $specRows[$ri];
+        $out = [];
+        foreach ([['Tolerans', $r['tol']], ['Sertlik / kaplama', $r['sert']], ['Yüzey', $r['ra']], ['Stok çap', 'Ø4–200 mm'], ['Tipik kullanım', $r['kul']]] as $x) {
+            if ($x[1] !== '—') $out[] = $x;
+        }
+        return $out;
+    };
 @endphp
 <section class="rq" id="olcu-sorgula" aria-labelledby="rq-h">
     <div class="container">
@@ -2245,7 +2263,7 @@ html{scroll-padding-top:96px}
                             <div class="rq-f rq-f--urun"><label data-for="urun">Ürün *</label>
                                 <select data-k="urun">
                                     @foreach($rqProducts as $rp)
-                                    <option value="{{ $rp['ad'] }}" data-tip="{{ $rp['tip'] }}">{{ $rp['ad'] }}</option>
+                                    <option value="{{ $rp['ad'] }}" data-tip="{{ $rp['tip'] }}" data-spec="{{ json_encode($rqSpecFor($rp['row']), JSON_UNESCAPED_UNICODE) }}">{{ $rp['ad'] }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -2256,6 +2274,7 @@ html{scroll-padding-top:96px}
                             <div class="rq-f rq-f--adet"><label data-for="adet">Adet *</label><input data-k="adet" type="number" inputmode="numeric" min="1" step="1" value="1"></div>
                             <div class="rq-f rq-f--not" data-notebox hidden><label data-for="not" data-not>Not (opsiyonel)</label><input data-k="not" type="text" maxlength="300" placeholder="tolerans, malzeme, yüzey…"></div>
                         </div>
+                        <dl class="rq-spec" data-specbox hidden aria-label="Seçilen ürünün teknik özellikleri"></dl>
                     </div>
                 </template>
             </div>
@@ -3515,6 +3534,21 @@ function wire(row) {
         if (!box.hidden) { try { f(row, 'not').focus({ preventScroll: true }); } catch (e) {} }
     });
 }
+/* Seçilen ürünün teknik özelliklerini kalemin altında göster (metin olarak yazılır: XSS yok) */
+function renderSpec(row) {
+    var box = row.querySelector('[data-specbox]'); if (!box) return;
+    var sel = f(row, 'urun'), list = [];
+    try { list = JSON.parse(sel.options[sel.selectedIndex].getAttribute('data-spec') || '[]'); } catch (e) { list = []; }
+    while (box.firstChild) box.removeChild(box.firstChild);
+    if (!list.length) { box.hidden = true; return; }
+    list.forEach(function (p) {
+        var d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = p[0]; dd.textContent = p[1];
+        if (p[0] === 'Tipik kullanım') d.className = 'rq-spec__wide';
+        d.appendChild(dt); d.appendChild(dd); box.appendChild(d);
+    });
+    box.hidden = false;
+}
 function applyType(row) {
     var tip = tipOf(row);
     row.setAttribute('data-tip', tip);
@@ -3528,6 +3562,7 @@ function applyType(row) {
     else { nbtn.hidden = false; if (!f(row, 'not').value) nbox.hidden = true; }
     row.querySelector('[data-not]').textContent = tip === 'ozel' ? 'Ürün tanımı ve ölçüler *' : 'Not (opsiyonel)';
     f(row, 'not').placeholder = tip === 'ozel' ? 'ürün, ölçü, tolerans, malzeme…' : 'tolerans, malzeme, yüzey…';
+    renderSpec(row);
     hint(row);
 }
 function hint(row) {
@@ -3763,8 +3798,9 @@ if (jump) jump.addEventListener('click', function () { jump.hidden = true; });
   .fl-home .faq__item[open]::before{transform:scaleY(1)}
   .fl-home .faq__item[open] .faq__a{animation:fxOpen .3s var(--ease-out)}
 
-  /* 12) Teklif formu: yeni kalem ve başarı onayı */
+  /* 12) Teklif formu: yeni kalem, teknik özellik satırı ve başarı onayı */
   .fl-home .rq-row{animation:fxRowIn .35s var(--ease-out)}
+  .fl-home .rq-spec:not([hidden]){animation:fxOpen .3s var(--ease-out)}
   .fl-home .rq__done:not([hidden]) .rq__done-ico{animation:fxPop .5s cubic-bezier(.34,1.56,.64,1)}
   .fl-home .rq__done:not([hidden]) > *:not(.rq__done-ico){animation:fxOpen .4s var(--ease-out) both}
 
