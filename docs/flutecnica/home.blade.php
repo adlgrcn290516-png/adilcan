@@ -1848,6 +1848,33 @@ html{scroll-padding-top:96px}
 .fl-home .rq-spec .rq-spec__wide{flex:1 1 100%}
 .fl-home .rq-spec .rq-spec__wide dd{font-family:var(--ff);font-weight:600;color:var(--ink-2)}
 @media (max-width:575.98px){.fl-home .rq-spec{flex-direction:column;gap:5px}.fl-home .rq-spec div{justify-content:space-between}}
+
+/* Akıllı uyarılar (kalem altında) */
+.fl-home .rq-tips{display:grid;gap:6px;margin-top:8px}
+.fl-home .rq-tip{display:flex;align-items:flex-start;gap:6px 10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--blue-line);border-left:3px solid var(--blue);border-radius:10px;background:#fff;font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.fl-home .rq-tip--warn{background:#FFF8F0;border-color:#F0D9B8;border-left-color:var(--yellow-dk)}
+.fl-home .rq-tip__t{flex:1 1 240px;margin:0;min-width:0}
+.fl-home .rq-tip__t b{color:var(--ink)}
+.fl-home .rq-tip__acts{display:flex;gap:6px;flex-wrap:wrap}
+.fl-home .rq-tip__btn{min-height:32px !important;min-width:0 !important;padding:0 12px;border:1px solid var(--blue-line);border-radius:100px;background:var(--blue-soft);color:var(--blue-dk);font:700 12px var(--ff);cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.fl-home .rq-tip__btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* Canlı teklif özeti */
+.fl-home .rq__live{margin:0;padding:12px 16px;border-bottom:1px solid var(--line-2);background:linear-gradient(180deg,#F7F9FC,#fff)}
+.fl-home .rq__live-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px;font:700 11px/1.3 var(--ff-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.fl-home .rq__live-head b{font:700 12px/1.3 var(--ff-mono);letter-spacing:.02em;text-transform:none;color:var(--blue)}
+.fl-home .rq__live-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.fl-home .rq__live-list li{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;padding:6px 10px;border:1px solid var(--line-2);border-radius:8px;background:#fff;font-size:12.5px}
+.fl-home .rq__live-list li b{color:var(--ink);font-weight:700}
+.fl-home .rq__live-list li span{font-family:var(--ff-mono);font-size:12px;color:var(--ink-2)}
+.fl-home .rq__live-list li.is-wait span{color:var(--text-light)}
+
+/* Eylem düğmeleri: WhatsApp + gönder */
+.fl-home .rq__acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.fl-home .rq__wa{display:inline-flex !important;align-items:center;justify-content:center;gap:8px;min-height:46px !important;padding:0 20px;border:1.5px solid var(--green);border-radius:100px;background:#fff;color:var(--green);font:700 14px var(--ff);cursor:pointer;transition:background .2s,color .2s,transform .2s}
+.fl-home .rq__wa svg{width:18px;height:18px;fill:currentColor;flex:0 0 18px}
+.fl-home .rq__wa:hover{background:var(--green);color:#fff;transform:translateY(-1px)}
+@media (max-width:767.98px){.fl-home .rq__acts{flex-direction:column;align-items:stretch}.fl-home .rq__wa,.fl-home .rq__submit{width:100%}}
 .fl-home .rq-row__head{display:flex;align-items:center;gap:12px;margin-bottom:8px;min-height:24px}
 .fl-home .rq-row__no{flex:0 0 auto;font:700 11px/1 var(--ff-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
 .fl-home .rq-row__hint{flex:1 1 auto;min-width:0;margin:0;font-size:12px;line-height:1.4;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2139,13 +2166,15 @@ html{scroll-padding-top:96px}
 @php
     /* 'row' → $specRows indeksi: seçilen ürünün teknik özellikleri kalemin altında bu tablodan gösterilir */
     $rqProducts = [
-        ['ad' => 'Sert Krom Kaplı Mil',             'tip' => 'mil',  'row' => 0],
-        ['ad' => 'CK45 İndüksiyonlu Krom Kaplı Mil', 'tip' => 'mil',  'row' => 1],
-        ['ad' => 'CF53 İndüksiyonlu Kromlu Mil',    'tip' => 'mil',  'row' => 2],
-        ['ad' => 'Honlanmış Boru (H8)',             'tip' => 'boru', 'row' => 3],
-        ['ad' => 'Krom Kaplı Rod Boru',             'tip' => 'boru', 'row' => 4],
-        ['ad' => 'Diğer / özel ürün',               'tip' => 'ozel', 'row' => null],
+        ['ad' => 'Sert Krom Kaplı Mil',             'tip' => 'mil',  'row' => 0,    'key' => 'sert'],
+        ['ad' => 'CK45 İndüksiyonlu Krom Kaplı Mil', 'tip' => 'mil',  'row' => 1,    'key' => 'ck45'],
+        ['ad' => 'CF53 İndüksiyonlu Kromlu Mil',    'tip' => 'mil',  'row' => 2,    'key' => 'cf53'],
+        ['ad' => 'Honlanmış Boru (H8)',             'tip' => 'boru', 'row' => 3,    'key' => 'honlanmis'],
+        ['ad' => 'Krom Kaplı Rod Boru',             'tip' => 'boru', 'row' => 4,    'key' => 'rod'],
+        ['ad' => 'Diğer / özel ürün',               'tip' => 'ozel', 'row' => null, 'key' => 'ozel'],
     ];
+    /* "WhatsApp ile gönder" numarası (ülke kodlu, yalnız rakam). WhatsApp kullanılan numarayı yazın; boş bırakılırsa düğme gizlenir. */
+    $rqWa = '905059344354';
     $rqSpecFor = function ($ri) use ($specRows) {
         if ($ri === null || !isset($specRows[$ri])) return [];
         $r = $specRows[$ri];
@@ -2225,6 +2254,12 @@ html{scroll-padding-top:96px}
                             </div>
                         </fieldset>
 
+                        {{-- Canlı teklif özeti: kalemler girildikçe güncellenir --}}
+                        <div class="rq__live" id="rq-live" aria-label="Teklif özeti">
+                            <div class="rq__live-head"><span>Teklif özeti</span><b id="rq-live-total">0 kalem</b></div>
+                            <ul class="rq__live-list" id="rq-live-list"></ul>
+                        </div>
+
                         <div class="rq__foot">
                             {{-- İnsan doğrulaması: basit işlem sorusu --}}
                             <div class="rq-f rq__cap" id="rq-cap">
@@ -2234,7 +2269,12 @@ html{scroll-padding-top:96px}
                             </div>
                             <label class="rq__check"><input type="checkbox" id="rq-kvkk"><span>Kişisel verilerimin, teklif talebimin değerlendirilmesi amacıyla işlenmesini kabul ediyorum. *</span></label>
                             <p class="rq__status" id="rq-status" role="alert" hidden></p>
-                            <button type="submit" class="fl-btn-primary rq__submit" id="rq-submit">Teklif talebini gönder {!! $icArrow !!}</button>
+                            <div class="rq__acts">
+                                @if($rqWa)
+                                <button type="button" class="rq__wa" id="rq-wa" data-wa="{{ $rqWa }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 004.74 1.21c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 01-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 4.54 0 8.24 3.7 8.24 8.24s-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.23.25-.87.85-.87 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.29z"/></svg><span>WhatsApp ile gönder</span></button>
+                                @endif
+                                <button type="submit" class="fl-btn-primary rq__submit" id="rq-submit">Teklif talebini gönder {!! $icArrow !!}</button>
+                            </div>
                         </div>
                     </div>
 
@@ -2263,7 +2303,7 @@ html{scroll-padding-top:96px}
                             <div class="rq-f rq-f--urun"><label data-for="urun">Ürün *</label>
                                 <select data-k="urun">
                                     @foreach($rqProducts as $rp)
-                                    <option value="{{ $rp['ad'] }}" data-tip="{{ $rp['tip'] }}" data-spec="{{ json_encode($rqSpecFor($rp['row']), JSON_UNESCAPED_UNICODE) }}">{{ $rp['ad'] }}</option>
+                                    <option value="{{ $rp['ad'] }}" data-tip="{{ $rp['tip'] }}" data-key="{{ $rp['key'] }}" data-spec="{{ json_encode($rqSpecFor($rp['row']), JSON_UNESCAPED_UNICODE) }}">{{ $rp['ad'] }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -2275,6 +2315,7 @@ html{scroll-padding-top:96px}
                             <div class="rq-f rq-f--not" data-notebox hidden><label data-for="not" data-not>Not (opsiyonel)</label><input data-k="not" type="text" maxlength="300" placeholder="tolerans, malzeme, yüzey…"></div>
                         </div>
                         <dl class="rq-spec" data-specbox hidden aria-label="Seçilen ürünün teknik özellikleri"></dl>
+                        <div class="rq-tips" data-tipbox hidden role="status"></div>
                     </div>
                 </template>
             </div>
@@ -3584,7 +3625,116 @@ function renumber() {
     all.forEach(function (r, i) { r.querySelector('[data-no]').textContent = 'Kalem ' + (i + 1); r.querySelector('[data-del]').hidden = all.length === 1; });
     countEl.textContent = all.length + ' / ' + MAX;
     addBtn.disabled = all.length >= MAX;
+    refresh();
 }
+
+/* ── Canlı özet + akıllı uyarılar + WhatsApp (tüm metinler textContent ile yazılır: XSS yok) ── */
+function keyOf(row) { var s = f(row, 'urun'); return s.options[s.selectedIndex].getAttribute('data-key'); }
+function itemOf(row) {
+    var tip = tipOf(row), it = { urun: f(row, 'urun').value, tip: tip, key: keyOf(row), ok: true };
+    var cap = num(f(row, 'cap').value), dis = num(f(row, 'dis_cap').value), ic = num(f(row, 'ic_cap').value),
+        boy = num(f(row, 'boy').value), adet = num(f(row, 'adet').value), nt = f(row, 'not').value.trim();
+    if (tip === 'mil') { if (cap === null) it.ok = false; else it.cap = cap; }
+    if (tip === 'boru') { if (dis === null || ic === null || ic >= dis) it.ok = false; if (dis !== null) it.dis_cap = dis; if (ic !== null) it.ic_cap = ic; }
+    if (boy === null) it.ok = false; else it.boy = boy;
+    if (adet === null) it.ok = false; else it.adet = adet;
+    if (tip === 'ozel' && !nt) it.ok = false;
+    if (nt) it.not = nt;
+    return it;
+}
+function sizeText(it) {
+    var o = it.cap ? 'Ø' + fmt(it.cap) + ' mm' : (it.dis_cap ? 'Dış Ø' + fmt(it.dis_cap) + (it.ic_cap ? ' / İç Ø' + fmt(it.ic_cap) : '') + ' mm' : '');
+    return [o, it.boy ? fmt(it.boy) + ' mm boy' : '', it.adet ? it.adet + ' adet' : ''].filter(Boolean).join(' · ');
+}
+function renderLive(all) {
+    var list = document.getElementById('rq-live-list'), tot = document.getElementById('rq-live-total'); if (!list || !tot) return;
+    var ok = all.filter(function (x) { return x.ok; }), sum = ok.reduce(function (a, x) { return a + x.adet; }, 0);
+    while (list.firstChild) list.removeChild(list.firstChild);
+    all.forEach(function (it, i) {
+        var li = document.createElement('li'), b = document.createElement('b'), sp = document.createElement('span');
+        if (!it.ok) li.className = 'is-wait';
+        b.textContent = (i + 1) + '. ' + it.urun;
+        sp.textContent = sizeText(it) || (it.tip === 'ozel' && it.not ? it.not : 'ölçü bekleniyor');
+        li.appendChild(b); li.appendChild(sp); list.appendChild(li);
+    });
+    tot.textContent = ok.length + ' / ' + all.length + ' kalem hazır' + (ok.length ? ' · toplam ' + sum + ' adet' : '');
+}
+function sig(it) { return [it.key, it.cap, it.dis_cap, it.ic_cap, it.boy].join('|'); }
+function tipsFor(it, i, all) {
+    var out = [];
+    if (it.key === 'sert') out.push({ k: 'info', t: 'Mil üzerinde rulman yürüyecekse sert krom yerine indüksiyonlu mil (CK45 veya CF53) seçin.', a: [['CK45’e geç', 'ck45'], ['CF53’e geç', 'cf53']] });
+    if (it.key === 'cf53') out.push({ k: 'info', t: 'CF53 ISO h7 toleranslıdır ve rulman yürüyüşlü lineer sistemler içindir. Keçe temaslı piston milinde ISO f7 olan sert krom veya CK45 kullanılır.', a: [['Sert krom’a geç', 'sert'], ['CK45’e geç', 'ck45']] });
+    if (it.key === 'honlanmis') out.push({ k: 'info', t: 'Honlanmış borunun ISO H8 toleransı iç çap içindir; iç çapı doğru girdiğinizden emin olun.', a: [] });
+    var big = it.cap || it.dis_cap;
+    if (big && it.boy && it.boy < big) out.push({ k: 'warn', t: 'Boy (' + fmt(it.boy) + ' mm) çaptan küçük görünüyor. Ölçüleri milimetre olarak girdiğinizden emin olun.', a: [] });
+    for (var j = 0; j < i; j++) {
+        if (all[j].ok && it.ok && sig(all[j]) === sig(it)) { out.push({ k: 'warn', t: 'Bu kalem ' + (j + 1) + '. kalemle aynı ölçüde görünüyor; adetleri tek kalemde birleştirebilirsiniz.', a: [] }); break; }
+    }
+    return out;
+}
+function renderTips(row, it, i, all) {
+    var box = row.querySelector('[data-tipbox]'); if (!box) return;
+    var tips = tipsFor(it, i, all);
+    /* İçerik değişmediyse DOM'u yeniden kurma: alandan çıkış (blur→change) düğmeyi tıklama anında silmesin */
+    var sg = JSON.stringify(tips);
+    if (box.__sig === sg) return;
+    box.__sig = sg;
+    while (box.firstChild) box.removeChild(box.firstChild);
+    if (!tips.length) { box.hidden = true; return; }
+    tips.forEach(function (t) {
+        var d = document.createElement('div'), p = document.createElement('p');
+        d.className = 'rq-tip' + (t.k === 'warn' ? ' rq-tip--warn' : '');
+        p.className = 'rq-tip__t'; p.textContent = t.t; d.appendChild(p);
+        if (t.a.length) {
+            var acts = document.createElement('div'); acts.className = 'rq-tip__acts';
+            t.a.forEach(function (a) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'rq-tip__btn';
+                b.setAttribute('data-switch', a[1]); b.textContent = a[0]; acts.appendChild(b);
+            });
+            d.appendChild(acts);
+        }
+        box.appendChild(d);
+    });
+    box.hidden = false;
+}
+function refresh() {
+    var rs = rows(), all = rs.map(itemOf);
+    rs.forEach(function (row, i) { renderTips(row, all[i], i, all); });
+    renderLive(all);
+}
+rowsEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-switch]'); if (!btn) return;
+    var row = btn.closest('[data-row]'), sel = f(row, 'urun');
+    for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].getAttribute('data-key') === btn.getAttribute('data-switch')) { sel.selectedIndex = i; break; }
+    }
+    applyType(row); refresh();
+});
+['input', 'change'].forEach(function (ev) { form.addEventListener(ev, refresh); });
+
+function waText(items) {
+    var L = ['Merhaba, Flutecnica’dan teklif almak istiyorum.', '', 'Kalemler:'];
+    items.forEach(function (it, i) {
+        var o = it.cap ? 'Ø' + fmt(it.cap) + ' mm' : (it.dis_cap ? 'Dış Ø' + fmt(it.dis_cap) + ' / İç Ø' + fmt(it.ic_cap) + ' mm' : '');
+        L.push((i + 1) + ') ' + it.urun + ' — ' + [o, fmt(it.boy) + ' mm boy', it.adet + ' adet'].filter(Boolean).join(' · '));
+        if (it.not) L.push('   Not: ' + it.not);
+    });
+    var c = [['Ad Soyad', 'rq-ad'], ['Firma', 'rq-firma'], ['Telefon', 'rq-tel'], ['E-posta', 'rq-email'], ['Not', 'rq-mesaj']].filter(function (x) {
+        return document.getElementById(x[1]).value.trim();
+    }).map(function (x) { return x[0] + ': ' + document.getElementById(x[1]).value.trim(); });
+    if (c.length) { L.push(''); L = L.concat(c); }
+    return L.join('\n');
+}
+var waBtn = document.getElementById('rq-wa');
+if (waBtn) waBtn.addEventListener('click', function () {
+    clearErr(); showStatus('');
+    var r = readItems();
+    if (!r.ok) { showStatus('WhatsApp için lütfen ölçü kalemlerini eksiksiz doldurun.'); var bad = form.querySelector('.is-err input,.is-err select'); if (bad) try { bad.focus(); } catch (x) {} return; }
+    var url = 'https://wa.me/' + String(waBtn.getAttribute('data-wa') || '').replace(/\D+/g, '') + '?text=' + encodeURIComponent(waText(r.items));
+    /* 'noopener' özelliği window.open'ın null dönmesine yol açar (sayfa da yönlenirdi); opener'ı elle kopar */
+    var w = window.open(url, '_blank');
+    if (w) { try { w.opener = null; } catch (x) {} } else { location.href = url; }
+});
 function addRow() {
     if (rows().length >= MAX) return null;
     var node = tpl.content.firstElementChild.cloneNode(true);
@@ -3613,14 +3763,15 @@ window.flRqPrefill = function (o) {
         hint(row);
         row.classList.add('is-new'); setTimeout(function () { row.classList.remove('is-new'); }, 2200);
     }
+    refresh();
     var sec = document.getElementById('olcu-sorgula');
     if (sec) sec.scrollIntoView({ block: 'start', behavior: RM.matches ? 'auto' : 'smooth' });
     if (row && FINE.matches) { try { f(row, 'boy').focus({ preventScroll: true }); } catch (e) {} }
 };
 
 /* ── Doğrulama + gönderim ── */
-function collect() {
-    clearErr(); showStatus('');
+/* Kalemleri doğrula ve oku (hata mesajlarını alanların altına yazar) */
+function readItems() {
     var ok = true, items = [];
     rows().forEach(function (row) {
         var tip = tipOf(row), it = { urun: f(row, 'urun').value };
@@ -3633,6 +3784,11 @@ function collect() {
         if (nt) it.not = nt;
         items.push(it);
     });
+    return { ok: ok, items: items };
+}
+function collect() {
+    clearErr(); showStatus('');
+    var ri = readItems(), ok = ri.ok, items = ri.items;
     var ad = document.getElementById('rq-ad'), tel = document.getElementById('rq-tel'), em = document.getElementById('rq-email'), kv = document.getElementById('rq-kvkk');
     if (!ad.value.trim()) { setErr(ad, 'Ad soyad girin'); ok = false; }
     if (!/^[0-9+()\s\-]{7,}$/.test(tel.value.trim())) { setErr(tel, 'Geçerli bir telefon girin'); ok = false; }
@@ -3800,7 +3956,7 @@ if (jump) jump.addEventListener('click', function () { jump.hidden = true; });
 
   /* 12) Teklif formu: yeni kalem, teknik özellik satırı ve başarı onayı */
   .fl-home .rq-row{animation:fxRowIn .35s var(--ease-out)}
-  .fl-home .rq-spec:not([hidden]){animation:fxOpen .3s var(--ease-out)}
+  .fl-home .rq-spec:not([hidden]),.fl-home .rq-tips:not([hidden]){animation:fxOpen .3s var(--ease-out)}
   .fl-home .rq__done:not([hidden]) .rq__done-ico{animation:fxPop .5s cubic-bezier(.34,1.56,.64,1)}
   .fl-home .rq__done:not([hidden]) > *:not(.rq__done-ico){animation:fxOpen .4s var(--ease-out) both}
 

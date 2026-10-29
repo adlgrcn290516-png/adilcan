@@ -94,7 +94,7 @@
 
   /* 12) Teklif formu: yeni kalem, teknik özellik satırı ve başarı onayı */
   .fl-home .rq-row{animation:fxRowIn .35s var(--ease-out)}
-  .fl-home .rq-spec:not([hidden]){animation:fxOpen .3s var(--ease-out)}
+  .fl-home .rq-spec:not([hidden]),.fl-home .rq-tips:not([hidden]){animation:fxOpen .3s var(--ease-out)}
   .fl-home .rq__done:not([hidden]) .rq__done-ico{animation:fxPop .5s cubic-bezier(.34,1.56,.64,1)}
   .fl-home .rq__done:not([hidden]) > *:not(.rq__done-ico){animation:fxOpen .4s var(--ease-out) both}
 
