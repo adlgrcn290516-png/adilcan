@@ -3,7 +3,7 @@
 | Ensis Pnömatik — Ana Sayfa (home.blade.php)  v4.0  — sadece Türkçe · açık tema · Laravel 5.6 / PHP 7.2 uyumlu
 | v4.0: görsel cila (sayfa sonunda "v4.0 CİLA" CSS'i + küçük JS) · kaydırma çubuğu · bölüm başlık aksanı · marka filigranı
 |       · hero'da fare ışığı ve teknik resim paftasında hafif eğim (yalnız fare, "hareketi azalt"ta kapalı) · hesaplayıcıda canlı kesit görseli
-|       · "Hesaplamalar" bağlantıları 404 vermesin diye sayfadaki #hesaplayici bölümüne yönlendirildi (ayrı /hesaplamalar sayfası route'ta tanımlı değilse)
+|       · "Hesaplamalar" bağlantıları /hesaplamalar sayfasına gider (routes/web.php içinde Route::view('/hesaplamalar','hesaplamalar') tanımlı olmalı; yoksa 404 verir)
 |       · .gf (marka filtresi) düğmelerinde tanımsız --font değişkeni düzeltildi
 | v3.9: bölüm aralıkları kısaldı · Tox rengi yeşil · popüler ürün grupları yenilendi (teknik resim zeminli kartlar, marka filtresi)
 | v3.8: menüden "Tüm Ürünler" kaldırıldı (Ürünler menüsündeki "Tüm ürün grupları" linki duruyor)
@@ -1240,7 +1240,7 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
           </div>
         </li>
         <li><a href="{{ url('catalog_send') }}">Katalog</a></li>
-        <li><a href="{{ url('/') }}#hesaplayici">Hesaplamalar</a></li>
+        <li><a href="{{ url('hesaplamalar') }}">Hesaplamalar</a></li>
         <li><a href="{{ url('blogs') }}">Blog</a></li>
         <li><a href="{{ url('iletisim') }}">İletişim</a></li>
       </ul>
@@ -1270,7 +1270,7 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
     <a href="{{ url('urunlerimiz') }}">Tüm ürün grupları</a>
   </details>
   <a href="{{ url('catalog_send') }}">Katalog</a>
-  <a href="{{ url('/') }}#hesaplayici">Hesaplamalar</a>
+  <a href="{{ url('hesaplamalar') }}">Hesaplamalar</a>
   <a href="{{ url('blogs') }}">Blog</a>
   <a href="{{ url('iletisim') }}">İletişim</a>
   <a href="tel:{{ $site['phoneIntl'] }}">{{ $site['phone'] }}</a>
@@ -1610,7 +1610,7 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
         <p class="calc-note">Sonuçlar teorik değerlerdir; sürtünme, hız ve yük koşulları gerçek kuvveti etkiler. Kesin seçim için teknik ekibimize danışın.</p>
       </div>
     </div>
-    <a href="#rehber" class="btn btn-g btn-wrap rv" style="margin-top:22px">Pnömatik rehberi oku: ISO standartları, çap seçimi, valf türleri
+    <a href="{{ url('hesaplamalar') }}" class="btn btn-g btn-wrap rv" style="margin-top:22px">Tüm hesaplamalar: muadil kod bulucu, çap seçimi, hava tüketimi, hidrolik, burkulma
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
   </div>
 </section>
@@ -1806,7 +1806,7 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
           <li><a href="{{ url('politikalarimiz') }}">Politikalarımız</a></li>
           <li><a href="{{ url('partner-markalarimiz') }}">Partner Markalarımız</a></li>
           <li><a href="{{ url('catalog_send') }}">Katalog talebi</a></li>
-          <li><a href="{{ url('/') }}#hesaplayici">Teknik hesaplamalar</a></li>
+          <li><a href="{{ url('hesaplamalar') }}">Teknik hesaplamalar</a></li>
           <li><a href="{{ url('blogs') }}">Blog</a></li>
           <li><a href="{{ url('iletisim') }}">İletişim</a></li>
         </ul>
