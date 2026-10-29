@@ -1163,7 +1163,7 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
 .grp-logo{position:relative;overflow:hidden;display:grid;place-items:center;width:100%;min-height:132px;padding:14px 22px;border-radius:18px;background:#fff;box-shadow:0 18px 40px -18px rgba(0,0,0,.5);transition:transform .25s var(--ease)}
 .grp-logo:hover{transform:translateY(-3px)}
 .grp-logo img{display:block;width:100%;height:auto;max-height:84px;object-fit:contain;mix-blend-mode:multiply}
-.grp-logo.is-jpg img{max-height:none;transform:scale(2.1)}
+.grp-logo.is-jpg{min-height:0;padding:10px}.grp-logo.is-jpg img{max-height:150px;width:auto;max-width:100%;margin:0 auto}
 .grp-logo-txt{font-size:30px;font-weight:800;letter-spacing:-.02em;color:#0a3d91}
 .grp-slogan{margin:0;color:rgba(255,255,255,.85);font-size:15px;line-height:1.5}
 .grp-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin:0}

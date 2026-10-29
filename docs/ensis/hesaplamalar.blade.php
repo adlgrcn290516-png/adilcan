@@ -423,6 +423,21 @@
   .hc-disc-box{padding:14px;grid-template-columns:20px minmax(0,1fr);gap:10px}
   .hc-note.hc-empty{padding:18px}
 }
+.hc-tgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.hc-tc{display:flex;align-items:center;gap:12px;min-height:72px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:var(--shadow-sm);transition:border-color .2s,box-shadow .2s,transform .2s}
+.hc-tc:hover{border-color:rgba(10,108,255,.4);box-shadow:var(--shadow);transform:translateY(-2px)}
+.hc-tc .ic{flex-shrink:0;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.hc-tc .ic svg{width:22px;height:22px}
+.hc-tc .tx{min-width:0;flex:1}
+.hc-tc b{display:block;font-size:15px;color:var(--text)}
+.hc-tc small{display:block;margin-top:3px;font:700 10.5px/1 "JetBrains Mono",monospace;letter-spacing:.07em;color:var(--dim)}
+.hc-tc .go{flex-shrink:0;width:16px;height:16px;color:var(--dim);transition:transform .2s,color .2s}
+.hc-tc:hover .go{transform:translateX(3px);color:var(--accent)}
+.hc-tfree{display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:14px;color:var(--muted)}
+.hc-tfree svg{flex-shrink:0;width:18px;height:18px;color:#059669}
+.hc-tfree b{color:var(--text)}
+@media (max-width:1100px){.hc-tgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.hc-tgrid{grid-template-columns:minmax(0,1fr)}.hc-tc{min-height:64px}}
 @media print{.hc-tabs,.hc-side,.hc-band,.hc-hero-acts,.hc-copy,.hc-acts,.es-hdr,.es-ftr,.es-mbar,.es-wa{display:none!important}.hc-card{break-inside:avoid}}
 </style>
 
@@ -510,6 +525,24 @@
   </aside>
 
   <div class="hc-main">
+<section class="hc-sec hc-tools" aria-labelledby="h-tools">
+  <div class="hc-sec-in">
+    <div class="hc-head"><div><span class="eyebrow">Mühendislik araçları</span><h2 id="h-tools">Teknik hesaplama alanı</h2><p>Silindir seçimi ve tasarımı için {{ count($calcs) }} ücretsiz online araç. Tümü tarayıcıda çalışır; kurulum ya da üyelik gerekmez.</p></div></div>
+    <div class="hc-tgrid">
+      @foreach ($calcs as $c)
+        @php($tIco = ['muadil' => '<circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/>','kuvvet' => '<path d="M4 12h12M12 7l5 5-5 5"/>','cap-secimi' => '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>','hava' => '<path d="M3 9h11a3 3 0 1 0-3-3M3 15h15a3 3 0 1 1-3 3"/>','hidrolik' => '<rect x="3" y="9" width="14" height="6" rx="1"/><path d="M17 12h4M7 9V6M7 18v-3"/>','burkulma' => '<path d="M12 3v18M8 8l4-5 4 5M8 16l4 5 4-5"/>','birim' => '<path d="M7 7h12l-3-3M17 17H5l3 3"/>'])
+        @php($tTag = ['muadil' => 'KOD ÇÖZÜCÜ','kuvvet' => 'PNÖMATİK','cap-secimi' => 'SEÇİM REHBERİ','hava' => 'ENERJİ','hidrolik' => 'HİDROLİK','burkulma' => 'YAPISAL','birim' => 'ARAÇ'])
+        <a class="hc-tc" href="#{{ $c[0] }}" data-tab="{{ $c[0] }}">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{!! $tIco[$c[0]] !!}</svg></span>
+          <span class="tx"><b>{{ $c[1] }}</b><small>{{ $tTag[$c[0]] }}</small></span>
+          <svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        </a>
+      @endforeach
+    </div>
+    <p class="hc-tfree"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg><span><b>Ücretsiz &amp; online</b> — sonuçlar ön bilgilendirme amaçlıdır; teknik teyit için ekibimize yazın.</span></p>
+  </div>
+</section>
+
 {{-- 0) MUADİL KOD BULUCU --}}
 <section class="hc-sec" id="muadil" aria-labelledby="h-muadil">
   <div class="hc-sec-in">
