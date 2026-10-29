@@ -1,6 +1,6 @@
 {{--
 |--------------------------------------------------------------------------
-| Ensis Pnömatik — Teknik Hesaplamalar (resources/views/hesaplamalar.blade.php)  v1.3 — kurumsal düzen: yan menü, teknik çizim, başvuru tabloları, sonucu kopyala
+| Ensis Pnömatik — Teknik Hesaplamalar (resources/views/hesaplamalar.blade.php)  v1.4 — kurumsal düzen: yan menü, teknik çizim, başvuru tabloları, sonucu kopyala
 |--------------------------------------------------------------------------
 | Adres: https://ensispnomatik.com/hesaplamalar
 | v1.3: 404 düzeltmesi — sayfa artık routes/web.php içindeki  Route::view('/hesaplamalar', 'hesaplamalar')  ile açılır
@@ -399,6 +399,30 @@
   .hc-acts .btn{flex:1 1 100%}
 }
 @media (max-width:359px){.hc-res{grid-template-columns:minmax(0,1fr)}}
+/* v1.4 muadil alanı */
+.hc-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hc-steps li{display:flex;align-items:center;gap:8px;min-width:0;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg-2);font-size:13px;font-weight:600;color:var(--text);line-height:1.25}
+.hc-steps i{flex-shrink:0;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;font:700 12px/1 "JetBrains Mono",monospace;font-style:normal}
+.hc-brands{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.hc-brands li{padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:13px;font-weight:700;color:var(--muted)}
+#m-code{min-height:56px;font-size:17px}
+#m-form .hc-search .btn{min-height:56px;padding:0 28px}
+.hc-note.hc-empty{display:grid;justify-items:start;gap:8px;padding:22px;border-style:dashed;border-color:rgba(127,181,255,.4);background:rgba(255,255,255,.05)}
+.hc-empty>svg{width:34px;height:34px;color:#7fb5ff}
+.hc-empty>b{font-size:19px;letter-spacing:-.01em}
+.hc-empty p{margin:0;color:rgba(255,255,255,.8);font-size:14px}
+.hc-empty ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px;width:100%}
+.hc-empty li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.07);font-size:14px;font-weight:600}
+.hc-empty li::before{content:"";flex-shrink:0;width:8px;height:8px;border-radius:50%;background:#00b4d8}
+.hc-note.warn svg{display:none}
+.hc-disc-more{margin-top:6px}
+.hc-disc-more summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;font-size:13.5px;font-weight:700;color:#7a4b00;text-decoration:underline;text-underline-offset:3px}
+@media (max-width:640px){
+  .hc-steps{grid-template-columns:minmax(0,1fr)}
+  .hc-steps li{padding:9px 12px}
+  .hc-disc-box{padding:14px;grid-template-columns:20px minmax(0,1fr);gap:10px}
+  .hc-note.hc-empty{padding:18px}
+}
 @media print{.hc-tabs,.hc-side,.hc-band,.hc-hero-acts,.hc-copy,.hc-acts,.es-hdr,.es-ftr,.es-mbar,.es-wa{display:none!important}.hc-card{break-inside:avoid}}
 </style>
 
@@ -492,6 +516,11 @@
     <div class="hc-head"><div><span class="eyebrow">01 · Muadil bulucu</span><h2 id="h-muadil">Muadil ürün kodu bulucu</h2><p>Elinizdeki Festo, SMC, Airtac, Camozzi, Norgren veya Parker ürününün kodunu yazın. Ürün tipini, ISO standardını, çapı ve stroku çözelim; karşılığı olan ürün grubumuzu gösterelim.</p></div></div>
     <div class="hc-card">
       <form class="hc-in" id="m-form" aria-label="Muadil kod arama" style="grid-template-columns:minmax(0,1fr)">
+        <ol class="hc-steps" aria-label="Nasıl kullanılır">
+          <li><i>1</i><span>Kodu yazın</span></li>
+          <li><i>2</i><span>Bul'a basın</span></li>
+          <li><i>3</i><span>Muadili görün</span></li>
+        </ol>
         <div class="hc-f"><label for="m-code">Mevcut ürün kodu</label>
           <div class="hc-u hc-search"><input id="m-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Örn. DSBC-50-200-PPVA-N3" maxlength="60"><button class="btn btn-p" type="submit">Bul</button></div></div>
         <div class="hc-f"><span class="l">Örnek kodlar</span>
@@ -500,11 +529,18 @@
               <button type="button" data-ex="{{ $ex }}">{{ $ex }}</button>
             @endforeach
           </div></div>
+        <div class="hc-f"><span class="l">Desteklenen markalar</span>
+          <ul class="hc-brands">@foreach (['Festo', 'SMC', 'Airtac', 'Camozzi', 'Norgren', 'Parker'] as $bn0)<li>{{ $bn0 }}</li>@endforeach</ul></div>
         <p class="hc-hint">Kod etiket, fatura veya eski siparişlerde yazar. Tam kod yoksa seri adı ile çap ve strok da yeterli (ör. "DNC 63 x 250").</p>
       </form>
       <div class="hc-out" aria-live="polite">
         <span class="t">Sonuç</span>
-        <div id="m-empty" class="hc-note">Kodu yazıp <b>Bul</b>'a basın veya örneklerden birini seçin.</div>
+        <div id="m-empty" class="hc-note hc-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+          <b>Sonuç burada görünecek</b>
+          <p>Kodu yazıp <strong>Bul</strong>'a basın veya soldaki örneklerden birini seçin.</p>
+          <ul><li>Ürün tipi ve ISO standardı</li><li>Çap ve strok</li><li>Ensis muadil ürün grubu</li></ul>
+        </div>
         <div id="m-res" hidden>
           <div class="hc-res">
             <div class="hc-r big"><span>Ürün tipi</span><b id="m-r1">—</b><small id="m-r1s"></small></div>
@@ -534,8 +570,10 @@
       <div>
         <b id="muadil-ret-h">Sorumluluk reddi beyanı</b>
         <p>Muadil ürün kodu bulucu, girilen kodu üreticilerin genel kodlama düzenine göre otomatik olarak yorumlar. Gösterilen ürün tipi, standart, çap, strok ve ürün grubu yalnızca <strong>bilgilendirme ve ön seçim</strong> amaçlıdır; teknik teyit, katalog verisi veya yazılı teklif yerine geçmez. Görseller temsilidir.</p>
+        <details class="hc-disc-more"><summary>Tam metni göster</summary>
         <p>Kesin muadil; bağlantı ölçüleri, çalışma koşulları, malzeme, aksesuar ve sertifika gereksinimleri incelenerek teknik ekibimizin yazılı teyidi ile belirlenir. Ensis Pnömatik, bu aracın sonuçlarına dayanılarak teyit alınmadan yapılan seçim, sipariş, montaj veya kullanımdan doğabilecek uyumsuzluk, arıza ya da zararlardan sorumlu tutulamaz.</p>
         <p>Festo, SMC, Airtac, Camozzi, Norgren (IMI) ve Parker ilgili sahiplerinin tescilli markalarıdır. Bu adlar yalnızca ürün tipini karşılaştırmak amacıyla anılmıştır; anılmaları söz konusu firmalarla bir ortaklık, bayilik veya onay ilişkisi bulunduğu anlamına gelmez.</p>
+        </details>
       </div>
     </aside>
     <details class="hc-formula"><summary>Nasıl çalışır?</summary><div>
@@ -1161,5 +1199,10 @@ F_em = Fk / S
     document.querySelectorAll('.hc-sec[id]').forEach(function (sx) { io.observe(sx); });
   }
 })();
+
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href="#muadil-ret"]');
+    if (a) { var d = document.querySelector('.hc-disc-more'); if (d) d.open = true; }
+  });
 </script>
 @endsection

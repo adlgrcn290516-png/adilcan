@@ -1,6 +1,8 @@
 {{--
 |--------------------------------------------------------------------------
-| Ensis Pnömatik — Ana Sayfa (home.blade.php)  v4.0  — sadece Türkçe · açık tema · Laravel 5.6 / PHP 7.2 uyumlu
+| Ensis Pnömatik — Ana Sayfa (home.blade.php)  v4.1  — sadece Türkçe · açık tema · Laravel 5.6 / PHP 7.2 uyumlu
+| v4.1: header'da santral + cep (WhatsApp) numarası (masaüstünde iki satırlı blok, tablet/telefonda ara/WhatsApp simgeleri, menüde iki numara)
+|       · "Grup şirketimiz" bölümü yeniden tasarlandı (eşit 2x2 kartlar, koyu kurumsal Flutecnica kartı, büyük logo, özet bilgiler)
 | v4.0: görsel cila (sayfa sonunda "v4.0 CİLA" CSS'i + küçük JS) · kaydırma çubuğu · bölüm başlık aksanı · marka filigranı
 |       · hero'da fare ışığı ve teknik resim paftasında hafif eğim (yalnız fare, "hareketi azalt"ta kapalı) · hesaplayıcıda canlı kesit görseli
 |       · "Hesaplamalar" bağlantıları /hesaplamalar sayfasına gider (routes/web.php içinde Route::view('/hesaplamalar','hesaplamalar') tanımlı olmalı; yoksa 404 verir)
@@ -859,29 +861,6 @@ html.intro .intro-ov.out{transform:translateY(-100%);opacity:.6}
 .faq details[open] summary i::after{transform:translate(-50%,-50%) rotate(0)}
 .faq details p{color:var(--muted);padding:0 0 22px}
 
-/* group */
-.group{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);border:1px solid var(--line);border-radius:var(--radius-lg);overflow:hidden;margin-top:30px;box-shadow:var(--shadow);background:#fff}
-.group .g-l{padding:clamp(24px,3.6vw,44px)}
-.group .g-l .lead{margin:0;max-width:62ch}
-.group .g-l .lead b{color:var(--text)}
-.g-list{list-style:none;margin:24px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px}
-.g-list li{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg-2);transition:border-color .2s,transform .2s}
-.g-list li:hover{border-color:var(--accent);transform:translateY(-2px)}
-.g-list i{display:grid;place-items:center;flex-shrink:0;width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--accent)}
-.g-list svg{width:20px;height:20px}
-.g-list b{display:block;font-size:14.5px;font-weight:700;line-height:1.3}
-.g-list small{display:block;margin-top:2px;color:var(--dim);font-size:12.5px;line-height:1.35}
-.group .g-r{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:16px;padding:clamp(26px,3.6vw,44px);background:linear-gradient(135deg,#0a3d91 0%,#0a6cff 60%,#00b4d8 100%);color:#fff}
-.group .g-r::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.12;background-image:linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px);background-size:32px 32px;-webkit-mask-image:linear-gradient(135deg,transparent 20%,#000);mask-image:linear-gradient(135deg,transparent 20%,#000)}
-.group .g-r::after{content:"";position:absolute;right:-60px;bottom:-60px;z-index:-1;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.28),transparent 70%)}
-.g-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);font:600 11px/1 "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase}
-.g-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
-.g-logo{position:relative;overflow:hidden;display:grid;place-items:center;width:100%;max-width:340px;height:auto;min-height:110px;padding:18px 22px;background:#fff;border-radius:18px;box-shadow:0 18px 40px -18px rgba(0,0,0,.45);transition:transform .25s var(--ease)}
-.g-logo:hover{transform:translateY(-3px)}
-.g-logo img{display:block;width:100%;height:auto;max-height:96px;object-fit:contain;mix-blend-mode:multiply}
-.g-logo-txt{font-size:30px;font-weight:800;letter-spacing:-.02em;color:#0a3d91}
-.g-slogan{margin:0;color:rgba(255,255,255,.9);font-size:15px;line-height:1.5}
-
 /* cta */
 .cta{text-align:center;overflow:hidden;background:var(--grad);color:#fff}
 .cta::before,.cta::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
@@ -1027,9 +1006,6 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
   .gf{flex-wrap:nowrap;overflow-x:auto;margin-right:calc(var(--gutter) * -1);padding-right:var(--gutter);scrollbar-width:none}
   .gf::-webkit-scrollbar{display:none}
   .gf button{flex-shrink:0}
-  .group{grid-template-columns:1fr}
-  .g-list{grid-template-columns:1fr}
-  .g-logo{max-width:none}
   .stats{grid-template-columns:repeat(2,1fr)}
   .float.f1{left:8px;top:-20px}.float.f2{right:8px;bottom:-18px}
   .hero-art{margin-top:28px}
@@ -1146,6 +1122,60 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
 .cv-bore{fill:#e8f1fd;stroke:#0a6cff;stroke-width:2;transition:r .35s var(--ease)}
 .cv-rod{fill:#0a6cff;fill-opacity:.85;transition:r .35s var(--ease)}
 .cv-cl{stroke:#0a6cff;stroke-opacity:.35;stroke-width:1;stroke-dasharray:6 3 1 3}
+/* =====================================================================
+   v4.1 — header iletişim bloğu + "Grup şirketimiz" bölümü
+   ===================================================================== */
+/* header: santral + cep (masaüstü) */
+.hdr-tel{display:flex;flex-direction:column;gap:2px;padding:5px 12px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:var(--shadow-sm)}
+.hdr-tel a{display:flex;align-items:center;gap:9px;min-height:26px;color:var(--text);transition:color .2s}
+.hdr-tel a:hover{color:var(--accent)}
+.hdr-tel svg{flex:0 0 17px;width:17px;height:17px;color:var(--accent)}
+.hdr-tel a+a svg{color:#16a34a}
+.hdr-tel span{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.hdr-tel b{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.hdr-tel small{font:600 10px/1 "JetBrains Mono",monospace;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.hdr-ico{display:none;gap:8px}
+.hdr-ico .hi{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line-2);border-radius:12px;background:#fff;color:var(--accent);box-shadow:var(--shadow-sm);transition:border-color .2s,transform .2s}
+.hdr-ico .hi:hover{border-color:var(--accent);transform:translateY(-1px)}
+.hdr-ico .hi svg{width:20px;height:20px}
+.hdr-ico .hi-wa{color:#16a34a;border-color:rgba(37,211,102,.45);background:rgba(37,211,102,.08)}
+@media (max-width:1180px){ .hdr-tel{display:none} .hdr-ico{display:flex} }
+@media (max-width:768px){ .hdr-ico .hi-wa{display:none} .hdr-ico .hi{width:46px;height:46px} }
+/* menü (drawer): iki numara satırı */
+.drawer a>span{font:600 12px/1 "JetBrains Mono",monospace;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.drawer a>b{font-weight:700}
+
+/* grup şirketi */
+.grp{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:20px;margin-top:30px;align-items:stretch}
+.grp-main{display:flex;flex-direction:column;gap:22px;padding:clamp(22px,3vw,36px);border:1px solid var(--line);border-radius:var(--radius-lg);background:#fff;box-shadow:var(--shadow-sm)}
+.grp-main .lead{margin:0;max-width:62ch}
+.grp-main .lead b{color:var(--text)}
+.grp-feat{list-style:none;margin:auto 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grp-feat li{display:flex;gap:14px;align-items:flex-start;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--bg-2);transition:border-color .2s,transform .2s,background .2s}
+.grp-feat li:hover{border-color:rgba(10,108,255,.4);background:#fff;transform:translateY(-2px)}
+.grp-feat i{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--accent)}
+.grp-feat svg{width:22px;height:22px}
+.grp-feat b{display:block;font-size:15.5px;line-height:1.3}
+.grp-feat small{display:block;margin-top:3px;font-size:13px;line-height:1.45;color:var(--muted)}
+.grp-card{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:18px;padding:clamp(22px,3vw,34px);border-radius:var(--radius-lg);color:#fff;background:linear-gradient(150deg,#0b1b2e 0%,#0d2a52 55%,#0a4cb0 100%);box-shadow:var(--shadow-lg)}
+.grp-card::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.1;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:32px 32px;-webkit-mask-image:linear-gradient(135deg,transparent 15%,#000);mask-image:linear-gradient(135deg,transparent 15%,#000)}
+.grp-card::after{content:"";position:absolute;right:-70px;bottom:-70px;z-index:-1;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(0,180,216,.35),transparent 70%)}
+.grp-logo{position:relative;overflow:hidden;display:grid;place-items:center;width:100%;min-height:132px;padding:14px 22px;border-radius:18px;background:#fff;box-shadow:0 18px 40px -18px rgba(0,0,0,.5);transition:transform .25s var(--ease)}
+.grp-logo:hover{transform:translateY(-3px)}
+.grp-logo img{display:block;width:100%;height:auto;max-height:84px;object-fit:contain;mix-blend-mode:multiply}
+.grp-logo.is-jpg img{max-height:none;transform:scale(2.1)}
+.grp-logo-txt{font-size:30px;font-weight:800;letter-spacing:-.02em;color:#0a3d91}
+.grp-slogan{margin:0;color:rgba(255,255,255,.85);font-size:15px;line-height:1.5}
+.grp-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin:0}
+.grp-facts div{padding:12px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.06)}
+.grp-facts dt{font:600 10.5px/1.2 "JetBrains Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:#9cc6ff}
+.grp-facts dd{margin:6px 0 0;font-weight:700;font-size:15px;line-height:1.25}
+.grp-acts{display:flex;flex-wrap:wrap;gap:10px;width:100%;margin-top:auto}
+.grp-acts .btn{flex:1 1 180px}
+.grp-acts .btn-o{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4)}
+.grp-acts .btn-o:hover{background:rgba(255,255,255,.1);border-color:#fff}
+@media (max-width:900px){ .grp{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:560px){ .grp-feat{grid-template-columns:minmax(0,1fr)} .grp-facts div{padding:10px} .grp-facts dd{font-size:14px} .grp-logo{min-height:112px} }
 </style>
 </head>
 <body>
@@ -1247,7 +1277,14 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
     </nav>
 
     <div class="hdr-cta">
-      <a href="tel:{{ $site['phoneIntl'] }}" class="btn btn-g">{{ $site['phone'] }}</a>
+      <div class="hdr-tel" aria-label="Telefon numaraları">
+        <a href="tel:{{ $site['phoneIntl'] }}" title="Santral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><span><b>{{ $site['phone'] }}</b><small>Santral</small></span></a>
+        <a href="tel:+{{ $site['whatsapp'] }}" title="Cep ve WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M11 18.5h2"/></svg><span><b>{{ $site['gsm'] }}</b><small>Cep · WhatsApp</small></span></a>
+      </div>
+      <div class="hdr-ico">
+        <a class="hi" href="tel:{{ $site['phoneIntl'] }}" aria-label="Santrali ara: {{ $site['phone'] }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></a>
+        <a class="hi hi-wa" href="https://wa.me/{{ $site['whatsapp'] }}" target="_blank" rel="noopener" aria-label="WhatsApp: {{ $site['gsm'] }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20l1.3-3.8A8 8 0 1 1 8 19.3L4 20Z"/></svg></a>
+      </div>
       <a href="{{ url('iletisim') }}#form" class="btn btn-p">Teklif İste</a>
       <button class="nav-toggle" aria-expanded="false" aria-controls="drawer" aria-label="Menüyü aç"><span></span></button>
     </div>
@@ -1273,7 +1310,8 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
   <a href="{{ url('hesaplamalar') }}">Hesaplamalar</a>
   <a href="{{ url('blogs') }}">Blog</a>
   <a href="{{ url('iletisim') }}">İletişim</a>
-  <a href="tel:{{ $site['phoneIntl'] }}">{{ $site['phone'] }}</a>
+  <a href="tel:{{ $site['phoneIntl'] }}"><span>Santral</span><b>{{ $site['phone'] }}</b></a>
+  <a href="tel:+{{ $site['whatsapp'] }}"><span>Cep · WhatsApp</span><b>{{ $site['gsm'] }}</b></a>
   <a href="{{ url('iletisim') }}#form" class="btn btn-p">Teklif İste</a>
 </nav>
 
@@ -1675,25 +1713,33 @@ a.c-item:hover{transform:translateX(4px);border-color:var(--accent)}
   <div class="wrap">
     <span class="eyebrow rv">Grup şirketimiz</span>
     <h2 id="group-title" class="h2 rv">Akışkan teknolojilerinde iki güçlü adres.</h2>
-    <div class="group rv">
-      <div class="g-l">
+    <div class="grp rv">
+      <div class="grp-main">
         <p class="lead">Kardeş şirketimiz <b>Flutecnica Akışkan Teknolojileri</b>; krom kaplı miller, honlu borular, hidrolik-pnömatik bileşenler ve hassas hareket ürünlerinde uzmandır. Silindir imalatından otomasyona kadar ihtiyaçlarınızı grup olarak karşılıyoruz.</p>
-        <ul class="g-list">
+        <ul class="grp-feat">
           <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12h18"/><path d="M5 9h14v6H5z"/></svg></i><span><b>Krom kaplı miller</b><small>Silindir ve doğrusal hareket için</small></span></li>
           <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/></svg></i><span><b>Honlu borular</b><small>Hidrolik ve pnömatik gövdeler</small></span></li>
           <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8h10v8H4zM14 11h6v2h-6"/></svg></i><span><b>Hidrolik-pnömatik bileşenler</b><small>Silindir parçaları ve aksesuarlar</small></span></li>
           <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17h18M6 17V9l6-4 6 4v8"/><path d="M10 13h4"/></svg></i><span><b>Hassas hareket</b><small>Lineer kızak ve rulman çözümleri</small></span></li>
         </ul>
       </div>
-      <div class="g-r">
+      <aside class="grp-card" aria-label="Flutecnica Akışkan Teknolojileri">
         <span class="g-tag">Grup şirketi</span>
-        <a class="g-logo" href="https://www.flutecnica.com" target="_blank" rel="noopener" aria-label="Flutecnica web sitesi">
-          <img src="{{ asset($flLogo ?: 'uploads/contents/3-1714936885-1.jpg') }}" alt="Flutecnica Akışkan Teknolojileri logosu" width="260" height="90" loading="lazy" decoding="async" onerror="this.outerHTML='&lt;b class=&quot;g-logo-txt&quot;&gt;Flutecnica&lt;/b&gt;'">
+        <a class="grp-logo{{ $flLogo ? '' : ' is-jpg' }}" href="https://www.flutecnica.com" target="_blank" rel="noopener" aria-label="Flutecnica web sitesi">
+          <img src="{{ asset($flLogo ?: 'uploads/contents/3-1714936885-1.jpg') }}" alt="Flutecnica Akışkan Teknolojileri logosu" width="260" height="90" loading="lazy" decoding="async" onerror="this.outerHTML='&lt;b class=&quot;grp-logo-txt&quot;&gt;Flutecnica&lt;/b&gt;'">
         </a>
-        <p class="g-slogan">Akışkan teknolojilerinde hassas çözümler</p>
-        <a href="https://www.flutecnica.com" class="btn btn-w" rel="noopener" target="_blank">flutecnica.com'u ziyaret et
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 11 11 5M6 5h5v5"/></svg></a>
-      </div>
+        <p class="grp-slogan">Akışkan teknolojilerinde hassas çözümler</p>
+        <dl class="grp-facts">
+          <div><dt>Stok</dt><dd>Ø4–200 mm</dd></div>
+          <div><dt>Sevkiyat</dt><dd>24–48 saat</dd></div>
+          <div><dt>Şube</dt><dd>Bursa · İstanbul</dd></div>
+        </dl>
+        <div class="grp-acts">
+          <a href="https://www.flutecnica.com" class="btn btn-w" rel="noopener" target="_blank">flutecnica.com'u ziyaret et
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 11 11 5M6 5h5v5"/></svg></a>
+          <a href="tel:+902244136161" class="btn btn-o">0224 413 61 61</a>
+        </div>
+      </aside>
     </div>
   </div>
 </section>
